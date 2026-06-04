@@ -25,6 +25,7 @@ Plataforma SaaS de videomonitoramento multi-tenant. Permite que revendedores (in
 | [SECURITY_LGPD.md](./SECURITY_LGPD.md) | Autenticação JWT+2FA, autorização por roles, zonas de privacidade e LGPD |
 | [CODE_STYLE.md](./CODE_STYLE.md) | Estrutura de pastas, nomenclatura, padrões obrigatórios e commits |
 | [ENV_CONFIG.md](./ENV_CONFIG.md) | Todas as variáveis de ambiente com exemplos e instruções de setup |
+| [SDD.md](./SDD.md) | Design interno de cada microserviço: padrões, sequências, máquinas de estado, algoritmos |
 
 ---
 
