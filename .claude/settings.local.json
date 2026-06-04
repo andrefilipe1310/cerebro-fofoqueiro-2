@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(New-Item -ItemType Directory -Force -Path \"c:\\\\Users\\\\deco_\\\\OneDrive\\\\Área de Trabalho\\\\projetos Freela\\\\Fofoqueiro\\\\cerebro 2\\\\docs\")"
+    ]
+  }
+}
