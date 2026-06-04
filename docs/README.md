@@ -4,7 +4,7 @@ Versão: v0.1.0
 Documentos relacionados: todos os documentos abaixo
 -->
 
-# [DEFINIR: nome do produto] — Documentação do Projeto
+# Fofoqueiro — Documentação do Projeto
 
 Plataforma SaaS de videomonitoramento multi-tenant. Permite que revendedores (integradores de segurança) ofereçam monitoramento de câmeras IP para clientes finais via navegador, sem plugins, com inteligência proativa (CHMS), conformidade LGPD e painel white-label.
 
