@@ -1,0 +1,54 @@
+# @path .gitignore
+# Credenciais e segredos — NUNCA commitar
+.env
+.env.local
+.env.*.local
+
+# Maven
+**/target/
+**/.mvn/
+**/mvnw
+**/mvnw.cmd
+
+# Java
+*.class
+*.jar
+!**/src/**/test/**/*.jar
+*.war
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.cache/
+frontend/*.log
+
+# Docker
+docker-compose.override.local.yml
+
+# Logs
+*.log
+logs/
+
+# Test results
+**/surefire-reports/
+**/test-results/
+coverage/
+
+# Temporários
+tmp/
+temp/
+recordings/

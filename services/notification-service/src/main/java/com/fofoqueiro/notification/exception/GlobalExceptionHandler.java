@@ -1,0 +1,38 @@
+// @path services/notification-service/src/main/java/com/fofoqueiro/notification/exception/GlobalExceptionHandler.java
+// @owner notification-service
+// @responsibility Centraliza tratamento de exceções — nunca vaza stack trace para o cliente
+// @see docs/CODE_STYLE.md#padroes-obrigatorios
+package com.fofoqueiro.notification.exception;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
+
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+@Slf4j
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, Object>> handleGeneral(Exception ex, WebRequest request) {
+        log.error("Erro não tratado em notification-service: {}", ex.getMessage(), ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(apiError("INTERNAL_ERROR", "Erro interno do servidor", 500, null));
+    }
+
+    private Map<String, Object> apiError(String code, String message, int status, Object details) {
+        var error = new LinkedHashMap<String, Object>();
+        error.put("code", code);
+        error.put("message", message);
+        error.put("status", status);
+        error.put("timestamp", Instant.now().toString());
+        if (details != null) error.put("details", details);
+        return Map.of("error", error);
+    }
+}

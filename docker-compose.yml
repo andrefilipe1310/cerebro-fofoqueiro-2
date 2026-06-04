@@ -1,0 +1,467 @@
+# @path docker-compose.yml
+# @owner infra
+# @responsibility Stack completa de desenvolvimento — infra + 8 microserviços + frontend
+# @see docs/ARCHITECTURE.md | docs/ENV_CONFIG.md
+
+services:
+
+  # ─── INFRAESTRUTURA ────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: fofoqueiro-postgres
+    environment:
+      POSTGRES_DB: platform
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d platform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - fofoqueiro-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: fofoqueiro-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-changeme_redis} --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-changeme_redis}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fofoqueiro-net
+
+  # Redpanda em vez de Kafka+Zookeeper no dev (single container, compatível com Kafka API)
+  # @see ADR-dev: Redpanda em dev, MSK/Confluent em prod
+  redpanda:
+    image: redpandadata/redpanda:latest
+    container_name: fofoqueiro-redpanda
+    command:
+      - redpanda
+      - start
+      - --smp 1
+      - --memory 512M
+      - --overprovisioned
+      - --kafka-addr INSIDE://0.0.0.0:9092,OUTSIDE://0.0.0.0:19092
+      - --advertise-kafka-addr INSIDE://redpanda:9092,OUTSIDE://localhost:19092
+      - --pandaproxy-addr 0.0.0.0:8082
+      - --advertise-pandaproxy-addr localhost:8082
+    ports:
+      - "19092:19092"
+      - "8082:8082"
+      - "9644:9644"
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster info || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - fofoqueiro-net
+
+  kafka-init:
+    image: redpandadata/redpanda:latest
+    container_name: fofoqueiro-kafka-init
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command: ["/scripts/create-topics.sh"]
+    environment:
+      KAFKA_BROKER: redpanda:9092
+    volumes:
+      - ./infra/kafka:/scripts:ro
+    networks:
+      - fofoqueiro-net
+
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: fofoqueiro-mediamtx
+    volumes:
+      - ./infra/mediamtx/mediamtx.yml:/mediamtx.yml:ro
+      - mediamtx_recordings:/tmp/recordings
+    ports:
+      - "8554:8554"   # RTSP
+      - "8889:8889"   # WebRTC (WHEP/WHIP)
+      - "8888:8888"   # HLS
+      - "9997:9997"   # Admin REST API
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9997/v3/paths/list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - fofoqueiro-net
+
+  kong:
+    image: kong:3.7-alpine
+    container_name: fofoqueiro-kong
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_PLUGINS: bundled
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme_redis}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+    volumes:
+      - ./infra/kong/kong.yml:/kong/kong.yml:ro
+    ports:
+      - "8000:8000"   # Proxy (entrada de todos os requests)
+      - "8001:8001"   # Admin API (dev only)
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+    networks:
+      - fofoqueiro-net
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: fofoqueiro-nginx
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - kong
+      - frontend
+    networks:
+      - fofoqueiro-net
+
+  # ─── MICROSERVIÇOS ─────────────────────────────────────────────────────────
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: fofoqueiro-auth
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: platform
+      AUTH_DB_USER: ${AUTH_DB_USER:-auth_service_user}
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:-changeme_auth}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme_redis}
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      JWT_SECRET: ${JWT_SECRET:-changeme_jwt_secret_min_256bits_here_padded}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-900000}
+      JWT_REFRESH_EXPIRATION_MS: ${JWT_REFRESH_EXPIRATION_MS:-604800000}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-changeme_32bytes_base64_here_padded}
+      TOTP_ISSUER: ${TOTP_ISSUER:-Fofoqueiro}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - fofoqueiro-net
+
+  tenant-service:
+    build:
+      context: ./services/tenant-service
+      dockerfile: Dockerfile
+    container_name: fofoqueiro-tenant
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: platform
+      TENANT_DB_USER: ${TENANT_DB_USER:-tenant_service_user}
+      TENANT_DB_PASSWORD: ${TENANT_DB_PASSWORD:-changeme_tenant}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme_redis}
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - fofoqueiro-net
+
+  camera-service:
+    build:
+      context: ./services/camera-service
+      dockerfile: Dockerfile
+    container_name: fofoqueiro-camera
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: platform
+      CAMERA_DB_USER: ${CAMERA_DB_USER:-camera_service_user}
+      CAMERA_DB_PASSWORD: ${CAMERA_DB_PASSWORD:-changeme_camera}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme_redis}
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      MEDIAMTX_API_URL: http://mediamtx:9997
+      MEDIAMTX_AUTH_TOKEN: ${MEDIAMTX_AUTH_TOKEN:-changeme_mediamtx}
+      MEDIAMTX_PUBLIC_URL: ${MEDIAMTX_PUBLIC_URL:-http://localhost:8889}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-changeme_32bytes_base64_here_padded}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-changeme_internal}
+      R2_ENDPOINT: ${R2_ENDPOINT:-http://localhost:9000}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-minioadmin}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-minioadmin}
+      R2_BUCKET_NAME: ${R2_BUCKET_NAME:-fofoqueiro-dev}
+      R2_PUBLIC_URL: ${R2_PUBLIC_URL:-http://localhost:9000/fofoqueiro-dev}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      mediamtx:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - fofoqueiro-net
+
+  chms-service:
+    build:
+      context: ./services/chms-service
+      dockerfile: Dockerfile
+    container_name: fofoqueiro-chms
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: platform
+      CHMS_DB_USER: ${CHMS_DB_USER:-chms_service_user}
+      CHMS_DB_PASSWORD: ${CHMS_DB_PASSWORD:-changeme_chms}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme_redis}
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      MEDIAMTX_API_URL: http://mediamtx:9997
+      MEDIAMTX_AUTH_TOKEN: ${MEDIAMTX_AUTH_TOKEN:-changeme_mediamtx}
+      CHMS_INSTANCE_ID: chms-0
+      CHMS_TOTAL_INSTANCES: 1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - fofoqueiro-net
+
+  recording-service:
+    build:
+      context: ./services/recording-service
+      dockerfile: Dockerfile
+    container_name: fofoqueiro-recording
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: platform
+      RECORDING_DB_USER: ${RECORDING_DB_USER:-recording_service_user}
+      RECORDING_DB_PASSWORD: ${RECORDING_DB_PASSWORD:-changeme_recording}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme_redis}
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      R2_ENDPOINT: ${R2_ENDPOINT:-http://localhost:9000}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-minioadmin}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-minioadmin}
+      R2_BUCKET_NAME: ${R2_BUCKET_NAME:-fofoqueiro-dev}
+      R2_PUBLIC_URL: ${R2_PUBLIC_URL:-http://localhost:9000/fofoqueiro-dev}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8085/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - fofoqueiro-net
+
+  alert-service:
+    build:
+      context: ./services/alert-service
+      dockerfile: Dockerfile
+    container_name: fofoqueiro-alert
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: platform
+      ALERT_DB_USER: ${ALERT_DB_USER:-alert_service_user}
+      ALERT_DB_PASSWORD: ${ALERT_DB_PASSWORD:-changeme_alert}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme_redis}
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8086/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - fofoqueiro-net
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: Dockerfile
+    container_name: fofoqueiro-notification
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme_redis}
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      SMTP_HOST: ${SMTP_HOST:-smtp.sendgrid.net}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-apikey}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-changeme_smtp}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@fofoqueiro.com}
+      EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Fofoqueiro}
+    depends_on:
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8087/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - fofoqueiro-net
+
+  audit-service:
+    build:
+      context: ./services/audit-service
+      dockerfile: Dockerfile
+    container_name: fofoqueiro-audit
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: platform
+      AUDIT_DB_USER: ${AUDIT_DB_USER:-audit_service_user}
+      AUDIT_DB_PASSWORD: ${AUDIT_DB_PASSWORD:-changeme_audit}
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8088/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - fofoqueiro-net
+
+  # ─── FRONTEND ──────────────────────────────────────────────────────────────
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fofoqueiro-frontend
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_MEDIA_URL: http://localhost:8889
+      NEXT_PUBLIC_WS_URL: ws://localhost:8000/ws
+      NEXT_PUBLIC_APP_ENV: development
+    ports:
+      - "3000:3000"
+    depends_on:
+      - kong
+    networks:
+      - fofoqueiro-net
+
+# ─── VOLUMES ─────────────────────────────────────────────────────────────────
+
+volumes:
+  postgres_data:
+  redis_data:
+  redpanda_data:
+  mediamtx_recordings:
+
+# ─── NETWORKS ────────────────────────────────────────────────────────────────
+
+networks:
+  fofoqueiro-net:
+    driver: bridge

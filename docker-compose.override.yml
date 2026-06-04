@@ -1,0 +1,75 @@
+# @path docker-compose.override.yml
+# @owner infra
+# @responsibility Overrides para desenvolvimento local — hot reload, debug ports expostos
+# Este arquivo é aplicado automaticamente pelo docker compose no dev
+
+services:
+  # Expõe portas do postgres, redis e redpanda no host para acesso direto com clientes
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  redpanda:
+    ports:
+      - "19092:19092"   # Kafka API (acesso externo do host)
+      - "9644:9644"     # Redpanda admin
+
+  # Monta código-fonte dos serviços para hot reload com Spring DevTools
+  auth-service:
+    volumes:
+      - ./services/auth-service/src:/app/src
+      - ~/.m2:/root/.m2
+    environment:
+      SPRING_DEVTOOLS_RESTART_ENABLED: "true"
+
+  tenant-service:
+    volumes:
+      - ./services/tenant-service/src:/app/src
+      - ~/.m2:/root/.m2
+
+  camera-service:
+    volumes:
+      - ./services/camera-service/src:/app/src
+      - ~/.m2:/root/.m2
+
+  chms-service:
+    volumes:
+      - ./services/chms-service/src:/app/src
+      - ~/.m2:/root/.m2
+
+  recording-service:
+    volumes:
+      - ./services/recording-service/src:/app/src
+      - ~/.m2:/root/.m2
+
+  alert-service:
+    volumes:
+      - ./services/alert-service/src:/app/src
+      - ~/.m2:/root/.m2
+
+  notification-service:
+    volumes:
+      - ./services/notification-service/src:/app/src
+      - ~/.m2:/root/.m2
+
+  audit-service:
+    volumes:
+      - ./services/audit-service/src:/app/src
+      - ~/.m2:/root/.m2
+
+  # Frontend com código-fonte montado para hot reload
+  frontend:
+    build:
+      context: ./frontend
+      target: deps   # Para em stage de deps para desenvolvimento
+    command: npm run dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      NODE_ENV: development

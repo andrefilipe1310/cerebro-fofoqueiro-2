@@ -1,0 +1,78 @@
+# @path infra/kafka/topics.yml
+# @owner infra
+# @responsibility Documentação dos tópicos Kafka — referência para docker-compose e para o time
+# @see docs/ARCHITECTURE.md#comunicacao
+
+topics:
+  - name: auth.events
+    partitions: 3
+    replication: 1        # dev; prod: 3
+    retention-ms: 604800000  # 7 dias
+    producers: [auth-service]
+    consumers: [audit-service]
+    events:
+      - auth.login.success
+      - auth.login.failure
+      - auth.logout
+
+  - name: camera.events
+    partitions: 6         # alto volume — ~1 câmera por partição
+    replication: 1
+    retention-ms: 604800000
+    producers: [camera-service]
+    consumers: [chms-service, audit-service]
+    events:
+      - camera.created
+      - camera.deleted
+      - camera.rtsp_updated
+
+  - name: health.events
+    partitions: 6
+    replication: 1
+    retention-ms: 604800000
+    producers: [chms-service]
+    consumers: [alert-service, recording-service]
+    events:
+      - camera.went_offline
+      - camera.came_online
+      - camera.low_confidence
+
+  - name: alert.events
+    partitions: 3
+    replication: 1
+    retention-ms: 604800000
+    producers: [alert-service]
+    consumers: [notification-service, audit-service]
+    events:
+      - alert.created
+      - alert.acknowledged
+
+  - name: recording.events
+    partitions: 6
+    replication: 1
+    retention-ms: 604800000
+    producers: [recording-service]
+    consumers: [audit-service]
+    events:
+      - recording.segment_stored
+      - recording.deleted
+
+  - name: tenant.events
+    partitions: 3
+    replication: 1
+    retention-ms: 604800000
+    producers: [tenant-service]
+    consumers: [chms-service, audit-service]
+    events:
+      - tenant.created
+      - tenant.plan_changed
+      - tenant.suspended
+
+  - name: audit.events
+    partitions: 6         # alto volume — todos os serviços produzem
+    replication: 1
+    retention-ms: 2592000000  # 30 dias
+    producers: [all-services]
+    consumers: [audit-service]
+    events:
+      - audit.action

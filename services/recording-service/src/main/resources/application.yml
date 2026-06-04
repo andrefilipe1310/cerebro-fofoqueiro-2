@@ -1,0 +1,85 @@
+# @path services/recording-service/src/main/resources/application.yml
+# @owner recording-service
+# @responsibility Configuração base do Recording Service — porta 8085, schema recordings
+# @see docs/ARCHITECTURE.md#recording-service | docs/ENV_CONFIG.md
+
+spring:
+  application:
+    name: recording-service
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:platform}
+    username: ${RECORDING_DB_USER:recording_service_user}
+    password: ${RECORDING_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: recordings
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    default-schema: recordings
+    baseline-on-migrate: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+server:
+  port: ${SERVER_PORT:8085}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+r2:
+  endpoint: ${R2_ENDPOINT}
+  access-key: ${R2_ACCESS_KEY_ID}
+  secret-key: ${R2_SECRET_ACCESS_KEY}
+  bucket: ${R2_BUCKET_NAME}
+  public-url: ${R2_PUBLIC_URL}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+logging:
+  level:
+    com.fofoqueiro.recording: DEBUG
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+logging:
+  level:
+    root: INFO
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    url: jdbc:tc:postgresql:16:///test_recordings
+  kafka:
+    bootstrap-servers: ${spring.embedded.kafka.brokers:localhost:9092}

@@ -1,0 +1,113 @@
+# @path infra/kong/kong.yml
+# @owner infra
+# @responsibility Kong API Gateway — roteamento declarativo para todos os microserviços
+# @see docs/ARCHITECTURE.md#api-gateway
+
+_format_version: "3.0"
+_transform: true
+
+services:
+  - name: auth-service
+    url: http://auth-service:8081
+    connect_timeout: 5000
+    read_timeout: 10000
+    routes:
+      - name: auth-routes
+        paths: ["/api/v1/auth"]
+        strip_path: false
+        methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+
+  - name: tenant-service
+    url: http://tenant-service:8082
+    connect_timeout: 5000
+    read_timeout: 10000
+    routes:
+      - name: tenant-routes
+        paths: ["/api/v1/tenants", "/api/v1/users", "/api/v1/admin/tenants"]
+        strip_path: false
+        methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+
+  - name: camera-service
+    url: http://camera-service:8083
+    connect_timeout: 5000
+    read_timeout: 15000
+    routes:
+      - name: camera-routes
+        paths: ["/api/v1/cameras", "/api/v1/locations"]
+        strip_path: false
+        methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+
+  - name: chms-service
+    url: http://chms-service:8084
+    connect_timeout: 5000
+    read_timeout: 10000
+    routes:
+      - name: chms-routes
+        paths: ["/api/v1/health"]
+        strip_path: false
+        methods: [GET, OPTIONS]
+
+  - name: recording-service
+    url: http://recording-service:8085
+    connect_timeout: 5000
+    read_timeout: 30000
+    routes:
+      - name: recording-routes
+        paths: ["/api/v1/recordings"]
+        strip_path: false
+        methods: [GET, DELETE, OPTIONS]
+
+  - name: alert-service
+    url: http://alert-service:8086
+    connect_timeout: 5000
+    read_timeout: 10000
+    routes:
+      - name: alert-routes
+        paths: ["/api/v1/alerts", "/ws"]
+        strip_path: false
+        protocols: ["http", "https", "ws", "wss"]
+        methods: [GET, PATCH, OPTIONS]
+
+  - name: audit-service
+    url: http://audit-service:8088
+    connect_timeout: 5000
+    read_timeout: 30000
+    routes:
+      - name: audit-routes
+        paths: ["/api/v1/audit-logs"]
+        strip_path: false
+        methods: [GET, OPTIONS]
+
+plugins:
+  # Rate limiting global por IP — 200 req/min por padrão (ADR-002)
+  - name: rate-limiting
+    config:
+      minute: 200
+      policy: redis
+      redis_host: redis
+      redis_port: 6379
+      redis_password: ${REDIS_PASSWORD}
+      hide_client_headers: false
+
+  # CORS global
+  - name: cors
+    config:
+      origins:
+        - "${CORS_ALLOWED_ORIGINS}"
+      methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+      headers: [Authorization, Content-Type, X-Request-Id, X-Tenant-Id]
+      credentials: true
+      max_age: 3600
+
+  # Request ID injection — rastreamento distribuído
+  - name: correlation-id
+    config:
+      header_name: X-Request-Id
+      generator: uuid#counter
+      echo_downstream: true
+
+  # TODO (Fase 2): Adicionar plugin JWT após o auth-service emitir tokens
+  # - name: jwt
+  #   config:
+  #     claims_to_verify: [exp]
+  #     key_claim_name: kid

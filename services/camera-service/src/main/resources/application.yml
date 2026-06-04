@@ -1,0 +1,97 @@
+# @path services/camera-service/src/main/resources/application.yml
+# @owner camera-service
+# @responsibility Configuração base do Camera Service — porta 8083, schema cameras
+# @see docs/ARCHITECTURE.md#camera-service | docs/ENV_CONFIG.md
+
+spring:
+  application:
+    name: camera-service
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:platform}
+    username: ${CAMERA_DB_USER:camera_service_user}
+    password: ${CAMERA_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: cameras
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    default-schema: cameras
+    baseline-on-migrate: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 3000ms
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+server:
+  port: ${SERVER_PORT:8083}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+mediamtx:
+  api-url: ${MEDIAMTX_API_URL:http://mediamtx:9997}
+  auth-token: ${MEDIAMTX_AUTH_TOKEN}
+  public-url: ${MEDIAMTX_PUBLIC_URL:http://localhost:8889}
+
+r2:
+  endpoint: ${R2_ENDPOINT}
+  access-key: ${R2_ACCESS_KEY_ID}
+  secret-key: ${R2_SECRET_ACCESS_KEY}
+  bucket: ${R2_BUCKET_NAME}
+
+encryption:
+  key: ${ENCRYPTION_KEY}
+
+internal:
+  api-secret: ${INTERNAL_API_SECRET}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+logging:
+  level:
+    com.fofoqueiro.camera: DEBUG
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+logging:
+  level:
+    root: INFO
+    com.fofoqueiro.camera: INFO
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    url: jdbc:tc:postgresql:16:///test_cameras
+  kafka:
+    bootstrap-servers: ${spring.embedded.kafka.brokers:localhost:9092}

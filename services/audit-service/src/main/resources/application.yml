@@ -1,0 +1,74 @@
+# @path services/audit-service/src/main/resources/application.yml
+# @owner audit-service
+# @responsibility Configuração base do Audit Service — porta 8088, schema audit, append-only
+# @see docs/ARCHITECTURE.md#audit-service | docs/ENV_CONFIG.md
+
+spring:
+  application:
+    name: audit-service
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:platform}
+    username: ${AUDIT_DB_USER:audit_service_user}
+    password: ${AUDIT_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # Audit Service tem alta carga de writes — pool maior
+      maximum-pool-size: 20
+      minimum-idle: 5
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: audit
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    default-schema: audit
+    baseline-on-migrate: true
+
+  # Audit Service só consome Kafka — sem Redis necessário
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+server:
+  port: ${SERVER_PORT:8088}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+logging:
+  level:
+    com.fofoqueiro.audit: DEBUG
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+logging:
+  level:
+    root: INFO
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    url: jdbc:tc:postgresql:16:///test_audit
+  kafka:
+    bootstrap-servers: ${spring.embedded.kafka.brokers:localhost:9092}

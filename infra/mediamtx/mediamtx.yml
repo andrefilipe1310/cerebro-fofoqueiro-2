@@ -1,0 +1,60 @@
+# @path infra/mediamtx/mediamtx.yml
+# @owner infra
+# @responsibility Configuração do MediaMTX — RTSP ingestion, WebRTC WHEP, HLS, auth via webhook
+# @see docs/MEDIA_PIPELINE.md | docs/ARCHITECTURE.md#fluxo-live
+
+logLevel: info
+logDestinations: [stdout]
+
+# API REST de administração — usada pelo CHMS Service para polling de câmeras
+api: yes
+apiAddress: :9997
+
+# Auth via webhook — camera-service valida cada acesso por token HMAC
+# @see docs/SDD.md#webhook-auth-mediamtx | docs/MULTI_TENANCY.md#isolamento-midia
+authMethod: http
+authHTTPAddress: http://camera-service:8083/internal/media/auth
+
+# WebRTC WHEP para latência < 500ms
+# @see docs/ARCHITECTURE.md#fluxo-live (ADR-013)
+webrtc: yes
+webrtcAddress: :8889
+webrtcLocalUDPAddress: :8189
+webrtcIPsFromInterfaces: yes
+webrtcICEServers2:
+  - urls: ["stun:stun.l.google.com:19302"]
+  # Em produção, adicionar TURN server para redes corporativas restritas:
+  # - urls: ["turn:turn.fofoqueiro.com:3478"]
+  #   username: ${TURN_USERNAME}
+  #   credential: ${TURN_CREDENTIAL}
+
+# HLS para playback de timeline — segmentos de 6s
+# @see docs/MEDIA_PIPELINE.md#gravacao-continua
+hls: yes
+hlsAddress: :8888
+hlsSegmentDuration: 6s
+hlsSegmentCount: 6
+hlsMuxerCloseAfter: 60s
+hlsAllowOrigin: "*"
+
+# RTSP ingestion das câmeras IP
+rtsp: yes
+rtspAddress: :8554
+
+# Gravação contínua para segmentação HLS
+# @see docs/ARCHITECTURE.md#fluxo-gravacao
+pathDefaults:
+  source: publisher
+  sourceOnDemand: yes
+  sourceOnDemandStartTimeout: 10s
+  sourceOnDemandCloseAfter: 30s
+  record: yes
+  recordPath: /tmp/recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+  recordFormat: fmp4
+  recordSegmentDuration: 60s
+
+# Paths por câmera: tenant_{tenant_id}/camera_{camera_id}/{quality}
+# Ex: tenant_abc123/camera_xyz789/main
+paths:
+  "~^[a-f0-9-]+/[a-f0-9-]+(main|sub|thumb)$":
+    source: publisher
