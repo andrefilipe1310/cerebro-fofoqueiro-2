@@ -3,6 +3,9 @@
 -- @responsibility Cria tabelas do schema auth: users, refresh_tokens, outbox_events
 -- @see docs/DATA_MODEL.md#users | docs/SDD.md#outbox | docs/MULTI_TENANCY.md#rls-exemplo
 
+-- Schema criado aqui para funcionar em Testcontainers (sem init scripts externos)
+CREATE SCHEMA IF NOT EXISTS auth;
+
 -- Função para atualizar updated_at automaticamente
 CREATE OR REPLACE FUNCTION auth.trigger_set_updated_at()
 RETURNS TRIGGER AS $$
@@ -43,9 +46,9 @@ CREATE TRIGGER users_set_updated_at
 
 -- RLS — isolamento por tenant (ADR-001)
 ALTER TABLE auth.users ENABLE ROW LEVEL SECURITY;
+-- TO omitido: policy aplica a todos os roles (isolamento de schema via GRANT está no init script)
 CREATE POLICY tenant_isolation_users ON auth.users
     AS PERMISSIVE FOR ALL
-    TO auth_service_user
     USING (tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID)
     WITH CHECK (tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID);
 

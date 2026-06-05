@@ -3,6 +3,8 @@
 -- @responsibility Cria tabelas do schema tenants: tenants, outbox_events
 -- @see docs/DATA_MODEL.md#tenants | docs/SDD.md#outbox
 
+CREATE SCHEMA IF NOT EXISTS tenants;
+
 -- Função para atualizar updated_at automaticamente
 CREATE OR REPLACE FUNCTION tenants.trigger_set_updated_at()
 RETURNS TRIGGER AS $$

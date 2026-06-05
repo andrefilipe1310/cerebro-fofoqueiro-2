@@ -3,6 +3,8 @@
 -- @responsibility Cria tabelas do schema alerts: alerts, outbox_events
 -- @see docs/DATA_MODEL.md#alerts | docs/SDD.md#design-alert (ADR-011 idempotência)
 
+CREATE SCHEMA IF NOT EXISTS alerts;
+
 -- ─── ALERTS ─────────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS alerts.alerts (
@@ -30,7 +32,6 @@ CREATE INDEX IF NOT EXISTS idx_alerts_tenant_type  ON alerts.alerts (tenant_id, 
 ALTER TABLE alerts.alerts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation_alerts ON alerts.alerts
     AS PERMISSIVE FOR ALL
-    TO alert_service_user
     USING (tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID)
     WITH CHECK (tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID);
 

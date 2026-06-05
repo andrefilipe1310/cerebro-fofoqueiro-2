@@ -1,0 +1,23 @@
+# @path services/notification-service/src/test/resources/application.yml
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+      - org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration
+  kafka:
+    bootstrap-servers: localhost:9092
+  data:
+    redis:
+      host: localhost
+      port: 6370
+      password: ""
+email:
+  from: test@fofoqueiro.com
+  from-name: FofoqueiroTest
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

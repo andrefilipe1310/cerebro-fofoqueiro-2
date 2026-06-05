@@ -1,10 +1,15 @@
 # @path docker-compose.override.yml
 # @owner infra
-# @responsibility Overrides para desenvolvimento local — hot reload, debug ports expostos
-# Este arquivo é aplicado automaticamente pelo docker compose no dev
+# @responsibility Overrides para desenvolvimento local — hot reload real com mvn spring-boot:run
+# Este arquivo é aplicado automaticamente pelo docker compose no dev.
+#
+# Estratégia de hot reload:
+#   - Serviços Java: substitui o command para rodar `mvn spring-boot:run` com Spring DevTools.
+#     Isso habilita reload automático ao detectar mudanças em .class (via IDE ou mvn compile).
+#   - Frontend Next.js: npm run dev com hot reload nativo via volume mount.
 
 services:
-  # Expõe portas do postgres, redis e redpanda no host para acesso direto com clientes
+  # Expõe portas de infra no host para acesso direto com clientes
   postgres:
     ports:
       - "5432:5432"
@@ -15,61 +20,116 @@ services:
 
   redpanda:
     ports:
-      - "19092:19092"   # Kafka API (acesso externo do host)
-      - "9644:9644"     # Redpanda admin
+      - "19092:19092"
+      - "9644:9644"
 
-  # Monta código-fonte dos serviços para hot reload com Spring DevTools
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  # ─── SERVIÇOS SPRING BOOT — hot reload via Spring DevTools ─────────────────
+  # O container usa a imagem Maven (builder stage) e monta o código-fonte.
+  # Spring DevTools detecta mudanças em .class e reinicia o contexto sem restart JVM.
+  # Para compilar enquanto desenvolve: `cd services/auth-service && mvn compile` no host.
+
   auth-service:
+    build:
+      context: ./services/auth-service
+      target: builder        # usa o stage Maven, não o runtime
+    image: fofoqueiro/auth-service:dev
+    command: mvn spring-boot:run -Dspring-boot.run.profiles=dev
     volumes:
-      - ./services/auth-service/src:/app/src
-      - ~/.m2:/root/.m2
+      - ./services/auth-service:/app
+      - maven_cache:/root/.m2
     environment:
       SPRING_DEVTOOLS_RESTART_ENABLED: "true"
+      SPRING_DEVTOOLS_RESTART_POLL_INTERVAL: "2s"
 
   tenant-service:
+    build:
+      context: ./services/tenant-service
+      target: builder
+    image: fofoqueiro/tenant-service:dev
+    command: mvn spring-boot:run -Dspring-boot.run.profiles=dev
     volumes:
-      - ./services/tenant-service/src:/app/src
-      - ~/.m2:/root/.m2
+      - ./services/tenant-service:/app
+      - maven_cache:/root/.m2
 
   camera-service:
+    build:
+      context: ./services/camera-service
+      target: builder
+    image: fofoqueiro/camera-service:dev
+    command: mvn spring-boot:run -Dspring-boot.run.profiles=dev
     volumes:
-      - ./services/camera-service/src:/app/src
-      - ~/.m2:/root/.m2
+      - ./services/camera-service:/app
+      - maven_cache:/root/.m2
 
   chms-service:
+    build:
+      context: ./services/chms-service
+      target: builder
+    image: fofoqueiro/chms-service:dev
+    command: mvn spring-boot:run -Dspring-boot.run.profiles=dev
     volumes:
-      - ./services/chms-service/src:/app/src
-      - ~/.m2:/root/.m2
+      - ./services/chms-service:/app
+      - maven_cache:/root/.m2
 
   recording-service:
+    build:
+      context: ./services/recording-service
+      target: builder
+    image: fofoqueiro/recording-service:dev
+    command: mvn spring-boot:run -Dspring-boot.run.profiles=dev
     volumes:
-      - ./services/recording-service/src:/app/src
-      - ~/.m2:/root/.m2
+      - ./services/recording-service:/app
+      - maven_cache:/root/.m2
 
   alert-service:
+    build:
+      context: ./services/alert-service
+      target: builder
+    image: fofoqueiro/alert-service:dev
+    command: mvn spring-boot:run -Dspring-boot.run.profiles=dev
     volumes:
-      - ./services/alert-service/src:/app/src
-      - ~/.m2:/root/.m2
+      - ./services/alert-service:/app
+      - maven_cache:/root/.m2
 
   notification-service:
+    build:
+      context: ./services/notification-service
+      target: builder
+    image: fofoqueiro/notification-service:dev
+    command: mvn spring-boot:run -Dspring-boot.run.profiles=dev
     volumes:
-      - ./services/notification-service/src:/app/src
-      - ~/.m2:/root/.m2
+      - ./services/notification-service:/app
+      - maven_cache:/root/.m2
 
   audit-service:
+    build:
+      context: ./services/audit-service
+      target: builder
+    image: fofoqueiro/audit-service:dev
+    command: mvn spring-boot:run -Dspring-boot.run.profiles=dev
     volumes:
-      - ./services/audit-service/src:/app/src
-      - ~/.m2:/root/.m2
+      - ./services/audit-service:/app
+      - maven_cache:/root/.m2
 
-  # Frontend com código-fonte montado para hot reload
+  # Frontend Next.js com hot reload nativo
   frontend:
     build:
       context: ./frontend
-      target: deps   # Para em stage de deps para desenvolvimento
+      target: deps
     command: npm run dev
     volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
     environment:
       NODE_ENV: development
+    ports:
+      - "3000:3000"
+
+volumes:
+  # Cache Maven compartilhado entre todos os serviços no dev — evita re-download
+  maven_cache:

@@ -3,6 +3,8 @@
 -- @responsibility Cria tabelas do schema recordings: recordings, outbox_events
 -- @see docs/DATA_MODEL.md#recordings | docs/ARCHITECTURE.md#recording-service (ADR-007)
 
+CREATE SCHEMA IF NOT EXISTS recordings;
+
 -- ─── RECORDINGS ─────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS recordings.recordings (
@@ -29,7 +31,6 @@ CREATE INDEX IF NOT EXISTS idx_recordings_cleanup      ON recordings.recordings 
 ALTER TABLE recordings.recordings ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation_recordings ON recordings.recordings
     AS PERMISSIVE FOR ALL
-    TO recording_service_user
     USING (tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID)
     WITH CHECK (tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID);
 

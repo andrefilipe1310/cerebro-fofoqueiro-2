@@ -3,6 +3,8 @@
 -- @responsibility Cria tabelas do schema cameras: locations, cameras, privacy_zones, outbox_events
 -- @see docs/DATA_MODEL.md#cameras | docs/MULTI_TENANCY.md#rls-exemplo | docs/SDD.md#outbox
 
+CREATE SCHEMA IF NOT EXISTS cameras;
+
 -- Função para atualizar updated_at automaticamente
 CREATE OR REPLACE FUNCTION cameras.trigger_set_updated_at()
 RETURNS TRIGGER AS $$
@@ -35,7 +37,6 @@ CREATE TRIGGER locations_set_updated_at
 ALTER TABLE cameras.locations ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation_locations ON cameras.locations
     AS PERMISSIVE FOR ALL
-    TO camera_service_user
     USING (tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID)
     WITH CHECK (tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID);
 
@@ -72,7 +73,6 @@ CREATE TRIGGER cameras_set_updated_at
 ALTER TABLE cameras.cameras ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation_cameras ON cameras.cameras
     AS PERMISSIVE FOR ALL
-    TO camera_service_user
     USING (tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID)
     WITH CHECK (tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID);
 
@@ -99,7 +99,6 @@ CREATE TRIGGER privacy_zones_set_updated_at
 ALTER TABLE cameras.privacy_zones ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation_privacy_zones ON cameras.privacy_zones
     AS PERMISSIVE FOR ALL
-    TO camera_service_user
     USING (tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID)
     WITH CHECK (tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID);
 

@@ -74,6 +74,51 @@ services:
     networks:
       - fofoqueiro-net
 
+  # MinIO — substituto local do Cloudflare R2 para desenvolvimento
+  # API S3-compatible: usar como R2_ENDPOINT=http://minio:9000 no .env
+  # @see docs/TECH_STACK.md#storage (MinIO como substituto R2 em dev)
+  minio:
+    image: minio/minio:latest
+    container_name: fofoqueiro-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${R2_ACCESS_KEY_ID:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${R2_SECRET_ACCESS_KEY:-minioadmin}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - fofoqueiro-net
+
+  # Cria o bucket padrão no MinIO ao inicializar
+  minio-init:
+    image: minio/mc:latest
+    container_name: fofoqueiro-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-minioadmin} $${MINIO_ROOT_PASSWORD:-minioadmin};
+        mc mb --ignore-existing local/$${R2_BUCKET_NAME:-fofoqueiro-dev};
+        mc anonymous set download local/$${R2_BUCKET_NAME:-fofoqueiro-dev};
+        echo 'MinIO bucket pronto.';
+      "
+    environment:
+      MINIO_ROOT_USER: ${R2_ACCESS_KEY_ID:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${R2_SECRET_ACCESS_KEY:-minioadmin}
+      R2_BUCKET_NAME: ${R2_BUCKET_NAME:-fofoqueiro-dev}
+    networks:
+      - fofoqueiro-net
+
   kafka-init:
     image: redpandadata/redpanda:latest
     container_name: fofoqueiro-kafka-init
@@ -110,7 +155,7 @@ services:
       - fofoqueiro-net
 
   kong:
-    image: kong:3.7-alpine
+    image: kong:3.7
     container_name: fofoqueiro-kong
     environment:
       KONG_DATABASE: "off"
@@ -459,6 +504,7 @@ volumes:
   redis_data:
   redpanda_data:
   mediamtx_recordings:
+  minio_data:
 
 # ─── NETWORKS ────────────────────────────────────────────────────────────────
 

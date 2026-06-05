@@ -3,6 +3,8 @@
 -- @responsibility Cria tabelas do schema health: camera_health_state, health_events, outbox_events
 -- @see docs/DATA_MODEL.md#health_events | docs/SDD.md#design-chms
 
+CREATE SCHEMA IF NOT EXISTS health;
+
 -- ─── CAMERA_HEALTH_STATE ────────────────────────────────────────────────────
 -- Mapa de status atual de cada câmera — atualizado apenas em mudanças de estado
 -- @see docs/ARCHITECTURE.md#chms-service (ADR-006)

@@ -3,13 +3,14 @@
 # @responsibility Multi-stage build — imagem mínima com usuário não-root
 # @see docs/TECH_STACK.md#stack-completo (Java 21)
 
-# Stage 1: build
-FROM eclipse-temurin:21-jdk-alpine AS builder
+# Stage 1: build — Maven incluso nesta imagem
+FROM maven:3.9-eclipse-temurin-21-alpine AS builder
 WORKDIR /app
 COPY pom.xml .
-RUN mvn -f pom.xml dependency:go-offline -B --no-transfer-progress 2>/dev/null || true
+# Cache de dependências em layer separada (invalida só quando pom.xml muda)
+RUN mvn dependency:go-offline -B --no-transfer-progress -q
 COPY src ./src
-RUN mvn -f pom.xml package -DskipTests -B --no-transfer-progress
+RUN mvn package -DskipTests -B --no-transfer-progress -q
 
 # Stage 2: runtime (imagem mínima)
 FROM eclipse-temurin:21-jre-alpine

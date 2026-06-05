@@ -3,6 +3,8 @@
 -- @responsibility Cria tabela de audit logs — append-only com trigger de imutabilidade
 -- @see docs/DATA_MODEL.md#audit_logs | docs/SECURITY_LGPD.md#imutabilidade-audit (ADR-010)
 
+CREATE SCHEMA IF NOT EXISTS audit;
+
 -- ─── AUDIT_LOGS ─────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS audit.audit_logs (
@@ -41,6 +43,10 @@ CREATE TRIGGER audit_immutability
     BEFORE UPDATE OR DELETE ON audit.audit_logs
     FOR EACH ROW EXECUTE FUNCTION audit.prevent_audit_mutation();
 
--- Permissões granulares: audit_service_user pode apenas INSERT + SELECT
-GRANT INSERT, SELECT ON audit.audit_logs TO audit_service_user;
-REVOKE UPDATE, DELETE ON audit.audit_logs FROM audit_service_user;
+-- Permissões granulares só aplicadas se o role existir (produção via init script)
+DO $$ BEGIN
+    IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'audit_service_user') THEN
+        GRANT INSERT, SELECT ON audit.audit_logs TO audit_service_user;
+        REVOKE UPDATE, DELETE ON audit.audit_logs FROM audit_service_user;
+    END IF;
+END $$;

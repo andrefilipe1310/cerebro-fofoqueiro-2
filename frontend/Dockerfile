@@ -6,8 +6,11 @@
 # Stage 1: deps — instala dependências
 FROM node:20-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm ci
+# Copie o lockfile do pnpm no lugar do lock do npm
+COPY package.json pnpm-lock.yaml ./
+
+# Instale o pnpm globalmente no contêiner e rode a instalação limpa
+RUN npm install -g pnpm && pnpm install --frozen-lockfile
 
 # Stage 2: builder — build de produção
 FROM node:20-alpine AS builder

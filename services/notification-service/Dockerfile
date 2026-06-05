@@ -1,12 +1,12 @@
 # @path services/notification-service/Dockerfile
 # @owner notification-service
 # @responsibility Multi-stage build — imagem mínima com usuário não-root
-FROM eclipse-temurin:21-jdk-alpine AS builder
+FROM maven:3.9-eclipse-temurin-21-alpine AS builder
 WORKDIR /app
 COPY pom.xml .
-RUN mvn -f pom.xml dependency:go-offline -B --no-transfer-progress 2>/dev/null || true
+RUN mvn dependency:go-offline -B --no-transfer-progress -q
 COPY src ./src
-RUN mvn -f pom.xml package -DskipTests -B --no-transfer-progress
+RUN mvn package -DskipTests -B --no-transfer-progress -q
 
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
