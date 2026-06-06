@@ -1,16 +1,12 @@
-// @path frontend/src/lib/api/auth.ts
-// @owner frontend
-// @responsibility Funções de autenticação — login, 2FA, refresh, logout
-// @see docs/API_CONTRACTS.md#auth-endpoints
 import { apiClient } from './client';
 import type { LoginResponse } from '@/types';
 
 export const authApi = {
-  login: (email: string, password: string, tenantSlug: string) =>
-    apiClient.post<LoginResponse>('/auth/login', { email, password, tenant_slug: tenantSlug }),
+  login: (tenantId: string, email: string, password: string) =>
+    apiClient.post<LoginResponse>('/auth/login', { tenant_id: tenantId, email, password }),
 
-  verify2fa: (code: string) =>
-    apiClient.post<LoginResponse>('/auth/2fa/verify', { code }),
+  verify2fa: (tempToken: string, totpCode: string) =>
+    apiClient.post<LoginResponse>('/auth/2fa/verify', { temp_token: tempToken, totp_code: totpCode }),
 
   setup2fa: () =>
     apiClient.post<{ qr_code_url: string; secret: string; backup_codes: string[] }>('/auth/2fa/setup'),
@@ -21,4 +17,6 @@ export const authApi = {
     }),
 
   logout: () => apiClient.post('/auth/logout'),
+
+  me: () => apiClient.get('/auth/me'),
 };

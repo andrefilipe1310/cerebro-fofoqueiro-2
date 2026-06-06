@@ -39,6 +39,9 @@ spring:
 server:
   port: ${SERVER_PORT:8088}
 
+jwt:
+  secret: ${JWT_SECRET:fofoqueiro-dev-secret-key-must-be-at-least-256-bits-long-for-hmac}
+
 management:
   endpoints:
     web:

@@ -1,14 +1,118 @@
-// @path frontend/src/app/(auth)/login/page.tsx
-// @owner frontend
-// @responsibility Página de login — implementação completa na Fase 2
-// @see docs/API_CONTRACTS.md#auth-login
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { tenantsApi } from '@/lib/api/tenants';
+import { authApi } from '@/lib/api/auth';
+import { useAuthStore } from '@/stores/auth.store';
+
+const schema = z.object({
+  tenantSlug: z.string().min(1, 'Informe o slug do tenant'),
+  email: z.string().email('Email inválido'),
+  password: z.string().min(1, 'Informe a senha'),
+});
+
+type FormData = z.infer<typeof schema>;
+
 export default function LoginPage() {
+  const router = useRouter();
+  const setUser = useAuthStore((s) => s.setUser);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+    resolver: zodResolver(schema),
+  });
+
+  const onSubmit = async (data: FormData) => {
+    setError('');
+    setLoading(true);
+    try {
+      const { data: tenantConfig } = await tenantsApi.getConfigBySlug(data.tenantSlug);
+      const { data: authData } = await authApi.login(tenantConfig.id, data.email, data.password);
+
+      sessionStorage.setItem('access_token', authData.access_token);
+      if (authData.refresh_token) {
+        sessionStorage.setItem('refresh_token', authData.refresh_token);
+      }
+      sessionStorage.setItem('tenant_id', tenantConfig.id);
+
+      if (authData.requires_2fa) {
+        sessionStorage.setItem('temp_token', authData.access_token);
+        router.push('/2fa');
+        return;
+      }
+
+      if (authData.user) {
+        setUser(authData.user, { ...tenantConfig, plan: 'STARTER', limits: { cameras_max: 10, cameras_current: 0, users_max: 5, retention_days: 30 } });
+      }
+
+      router.push('/cameras');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setError(e?.response?.data?.message ?? 'Credenciais inválidas');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="p-8 rounded-lg border bg-card shadow-sm">
-      <h1 className="text-2xl font-semibold mb-6">Fofoqueiro</h1>
-      <p className="text-muted-foreground text-sm">
-        Página de login — implementação na Fase 2
-      </p>
+    <div className="w-full max-w-md p-8 rounded-xl border bg-card shadow-sm">
+      <div className="mb-8 text-center">
+        <h1 className="text-3xl font-bold">Fofoqueiro</h1>
+        <p className="text-muted-foreground text-sm mt-1">Plataforma de Vigilância</p>
+      </div>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">Organização</label>
+          <input
+            {...register('tenantSlug')}
+            placeholder="minha-empresa"
+            className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          {errors.tenantSlug && <p className="text-destructive text-xs mt-1">{errors.tenantSlug.message}</p>}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Email</label>
+          <input
+            {...register('email')}
+            type="email"
+            placeholder="usuario@empresa.com"
+            className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          {errors.email && <p className="text-destructive text-xs mt-1">{errors.email.message}</p>}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Senha</label>
+          <input
+            {...register('password')}
+            type="password"
+            placeholder="••••••••"
+            className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          {errors.password && <p className="text-destructive text-xs mt-1">{errors.password.message}</p>}
+        </div>
+
+        {error && (
+          <div className="rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full py-2 px-4 rounded-md bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 disabled:opacity-50 transition-colors"
+        >
+          {loading ? 'Entrando...' : 'Entrar'}
+        </button>
+      </form>
     </div>
   );
 }

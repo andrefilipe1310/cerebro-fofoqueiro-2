@@ -57,7 +57,7 @@ management:
       show-details: when-authorized
 
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:fofoqueiro-dev-secret-key-must-be-at-least-256-bits-long-for-hmac}
   expiration-ms: ${JWT_EXPIRATION_MS:900000}
   refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
 

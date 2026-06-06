@@ -49,6 +49,9 @@ management:
       exposure:
         include: health,info,metrics,prometheus
 
+jwt:
+  secret: ${JWT_SECRET:fofoqueiro-dev-secret-key-must-be-at-least-256-bits-long-for-hmac}
+
 mediamtx:
   api-url: ${MEDIAMTX_API_URL:http://mediamtx:9997}
   auth-token: ${MEDIAMTX_AUTH_TOKEN}

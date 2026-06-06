@@ -1,22 +1,22 @@
-// @path frontend/src/middleware.ts
-// @owner frontend
-// @responsibility Proteção de rotas — redireciona para /login se não autenticado
-// @see docs/SECURITY_LGPD.md#autenticacao
 import { NextRequest, NextResponse } from 'next/server';
 
-const PUBLIC_PATHS = ['/login', '/2fa', '/first-access'];
+const PUBLIC_PATHS = ['/login', '/2fa'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  const isPublicPath = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
-
-  if (isPublicPath) {
+  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 
-  // Em produção (Fase 2+): verificar JWT via cookie HttpOnly
-  // Por ora (Fase 1), apenas estrutura de roteamento
+  const token = request.cookies.get('access_token')?.value;
+
+  if (!token) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    return NextResponse.redirect(url);
+  }
+
   return NextResponse.next();
 }
 

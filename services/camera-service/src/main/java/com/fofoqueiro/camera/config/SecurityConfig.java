@@ -1,20 +1,24 @@
-// @path services/camera-service/src/main/java/com/fofoqueiro/camera/config/SecurityConfig.java
-// @owner camera-service
-// @responsibility Phase 1 placeholder — Phase 2 adiciona JWT + proteção do webhook /internal/media/auth
-// @see docs/ARCHITECTURE.md#api-gateway (ADR-001) | docs/SDD.md#webhook-auth-mediamtx
 package com.fofoqueiro.camera.config;
 
+import com.fofoqueiro.camera.security.JwtAuthFilter;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final JwtAuthFilter jwtAuthFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -23,9 +27,10 @@ public class SecurityConfig {
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/**").permitAll()
-                // /internal/media/auth será protegido por X-Internal-Secret em Phase 4
-                .anyRequest().permitAll()
-            );
+                .requestMatchers("/internal/media/auth").permitAll()
+                .anyRequest().authenticated()
+            )
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }
