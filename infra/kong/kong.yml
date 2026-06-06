@@ -65,7 +65,7 @@ services:
       - name: alert-routes
         paths: ["/api/v1/alerts", "/ws"]
         strip_path: false
-        protocols: ["http", "https", "ws", "wss"]
+        protocols: ["http", "https"]
         methods: [GET, PATCH, OPTIONS]
 
   - name: audit-service

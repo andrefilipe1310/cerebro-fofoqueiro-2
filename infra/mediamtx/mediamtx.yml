@@ -19,14 +19,14 @@ authHTTPAddress: http://camera-service:8083/internal/media/auth
 # @see docs/ARCHITECTURE.md#fluxo-live (ADR-013)
 webrtc: yes
 webrtcAddress: :8889
-webrtcLocalUDPAddress: :8189
+webrtcLocalUDPAddress: 0.0.0.0:8189
 webrtcIPsFromInterfaces: yes
 webrtcICEServers2:
-  - urls: ["stun:stun.l.google.com:19302"]
+  - url: stun:stun.l.google.com:19302
   # Em produção, adicionar TURN server para redes corporativas restritas:
-  # - urls: ["turn:turn.fofoqueiro.com:3478"]
+  # - url: turn:turn.fofoqueiro.com:3478
   #   username: ${TURN_USERNAME}
-  #   credential: ${TURN_CREDENTIAL}
+  #   password: ${TURN_CREDENTIAL}
 
 # HLS para playback de timeline — segmentos de 6s
 # @see docs/MEDIA_PIPELINE.md#gravacao-continua
@@ -35,7 +35,7 @@ hlsAddress: :8888
 hlsSegmentDuration: 6s
 hlsSegmentCount: 6
 hlsMuxerCloseAfter: 60s
-hlsAllowOrigin: "*"
+hlsAllowOrigins: ["*"]
 
 # RTSP ingestion das câmeras IP
 rtsp: yes
@@ -44,10 +44,6 @@ rtspAddress: :8554
 # Gravação contínua para segmentação HLS
 # @see docs/ARCHITECTURE.md#fluxo-gravacao
 pathDefaults:
-  source: publisher
-  sourceOnDemand: yes
-  sourceOnDemandStartTimeout: 10s
-  sourceOnDemandCloseAfter: 30s
   record: yes
   recordPath: /tmp/recordings/%path/%Y-%m-%d_%H-%M-%S-%f
   recordFormat: fmp4
@@ -56,5 +52,5 @@ pathDefaults:
 # Paths por câmera: tenant_{tenant_id}/camera_{camera_id}/{quality}
 # Ex: tenant_abc123/camera_xyz789/main
 paths:
-  "~^[a-f0-9-]+/[a-f0-9-]+(main|sub|thumb)$":
+  "~^tenant_[a-f0-9-]+/camera_[a-f0-9-]+/(main|sub|thumb)$":
     source: publisher

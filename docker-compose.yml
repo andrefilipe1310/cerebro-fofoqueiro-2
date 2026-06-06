@@ -126,7 +126,7 @@ services:
       redpanda:
         condition: service_healthy
     entrypoint: ["/bin/bash", "-c"]
-    command: ["/scripts/create-topics.sh"]
+    command: ["tr -d '\\r' < /scripts/create-topics.sh | bash"]
     environment:
       KAFKA_BROKER: redpanda:9092
     volumes:
@@ -192,8 +192,10 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - kong
-      - frontend
+      kong:
+        condition: service_healthy
+      mediamtx:
+        condition: service_healthy
     networks:
       - fofoqueiro-net
 
