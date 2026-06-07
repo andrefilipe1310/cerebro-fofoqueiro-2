@@ -1,0 +1,2 @@
+ALTER TABLE recordings.recordings ADD COLUMN IF NOT EXISTS size_bytes   BIGINT;
+ALTER TABLE recordings.recordings ADD COLUMN IF NOT EXISTS has_motion  BOOLEAN NOT NULL DEFAULT FALSE;

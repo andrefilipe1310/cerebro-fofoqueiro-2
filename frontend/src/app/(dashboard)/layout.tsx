@@ -23,6 +23,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const handleLogout = async () => {
     try { await authApi.logout(); } catch {}
     sessionStorage.clear();
+    document.cookie = 'access_token=; path=/; max-age=0';
     clearAuth();
     router.push('/login');
   };

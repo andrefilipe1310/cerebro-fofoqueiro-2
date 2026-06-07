@@ -69,14 +69,19 @@ export interface StreamUrlResponse {
 export type AlertType = 'CAMERA_OFFLINE' | 'CAMERA_ONLINE' | 'MOTION_DETECTED' | 'LOW_CONFIDENCE';
 export type AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
 
+export type AlertStatus = 'TRIGGERED' | 'ACKNOWLEDGED' | 'RESOLVED';
+
 export interface Alert {
   id: string;
   type: AlertType;
   message: string;
-  camera: { id: string; name: string };
+  camera_id: string;
+  tenant_id: string;
   severity: AlertSeverity;
+  status: AlertStatus;
   triggered_at: string;
   acknowledged_at: string | null;
+  acknowledged_by: string | null;
 }
 
 // ─── RECORDING ────────────────────────────────────────────────────────────────

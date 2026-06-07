@@ -39,6 +39,7 @@ export default function LoginPage() {
         sessionStorage.setItem('refresh_token', authData.refresh_token);
       }
       sessionStorage.setItem('tenant_id', tenantConfig.id);
+      document.cookie = `access_token=${authData.access_token}; path=/; SameSite=Lax`;
 
       if (authData.requires_2fa) {
         sessionStorage.setItem('temp_token', authData.access_token);
