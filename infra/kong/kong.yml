@@ -4,7 +4,6 @@
 # @see docs/ARCHITECTURE.md#api-gateway
 
 _format_version: "3.0"
-_transform: true
 
 services:
   - name: auth-service
@@ -62,11 +61,13 @@ services:
     connect_timeout: 5000
     read_timeout: 10000
     routes:
-      - name: alert-routes
-        paths: ["/api/v1/alerts", "/ws"]
+      - name: alert-rest-routes
+        paths: ["/api/v1/alerts"]
         strip_path: false
-        protocols: ["http", "https"]
         methods: [GET, PATCH, OPTIONS]
+      - name: alert-ws-route
+        paths: ["/ws"]
+        strip_path: false
 
   - name: audit-service
     url: http://audit-service:8088
@@ -86,14 +87,15 @@ plugins:
       policy: redis
       redis_host: redis
       redis_port: 6379
-      redis_password: ${REDIS_PASSWORD}
+      redis_password: changeme_redis
       hide_client_headers: false
 
   # CORS global
   - name: cors
     config:
       origins:
-        - "${CORS_ALLOWED_ORIGINS}"
+        - "http://localhost:3000"
+        - "http://localhost"
       methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
       headers: [Authorization, Content-Type, X-Request-Id, X-Tenant-Id]
       credentials: true
@@ -103,11 +105,5 @@ plugins:
   - name: correlation-id
     config:
       header_name: X-Request-Id
-      generator: uuid#counter
+      generator: uuid
       echo_downstream: true
-
-  # TODO (Fase 2): Adicionar plugin JWT após o auth-service emitir tokens
-  # - name: jwt
-  #   config:
-  #     claims_to_verify: [exp]
-  #     key_claim_name: kid

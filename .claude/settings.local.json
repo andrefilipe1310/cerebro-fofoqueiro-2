@@ -3,7 +3,8 @@
     "allow": [
       "Bash(New-Item -ItemType Directory -Force -Path \"c:\\\\Users\\\\deco_\\\\OneDrive\\\\Área de Trabalho\\\\projetos Freela\\\\Fofoqueiro\\\\cerebro 2\\\\docs\")",
       "Bash(sed -n '188,196p' \"/c/Users/brend/Desktop/andre/cerebro-fofoqueiro-2/docker-compose.yml\")",
-      "Bash(sed -n '298,306p' \"/c/Users/brend/Desktop/andre/cerebro-fofoqueiro-2/docker-compose.yml\")"
+      "Bash(sed -n '298,306p' \"/c/Users/brend/Desktop/andre/cerebro-fofoqueiro-2/docker-compose.yml\")",
+      "Bash(xxd \"/c/Users/brend/Desktop/andre/cerebro-fofoqueiro-2/infra/kafka/create-topics.sh\")"
     ]
   }
 }

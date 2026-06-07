@@ -1,0 +1,24 @@
+# Força LF para todos os arquivos de texto — evita CRLF em scripts Linux
+* text=auto
+
+# Scripts shell DEVEM ter LF, nunca CRLF (linha `#!/bin/bash\r` quebra no Linux)
+*.sh text eol=lf
+*.sh linguist-executable=true
+
+# Configs e SQL também LF
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sql text eol=lf
+*.json text eol=lf
+*.java text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.md text eol=lf
+
+# Binários — não modificar
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.jar binary
+*.class binary
