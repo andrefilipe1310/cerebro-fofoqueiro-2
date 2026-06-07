@@ -57,6 +57,7 @@ mediamtx:
   api-url: ${MEDIAMTX_API_URL:http://mediamtx:9997}
   auth-token: ${MEDIAMTX_AUTH_TOKEN}
   public-url: ${MEDIAMTX_PUBLIC_URL:http://localhost:8889}
+  hls-url: ${MEDIAMTX_HLS_URL:http://localhost:8888}
 
 r2:
   endpoint: ${R2_ENDPOINT}

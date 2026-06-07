@@ -61,10 +61,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="w-full max-w-md p-8 rounded-xl border bg-card shadow-sm">
+    <div className="w-full max-w-md p-8 rounded-xl border border-[#2A2D3E] bg-[#1E2130] shadow-2xl">
       <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold">Fofoqueiro</h1>
-        <p className="text-muted-foreground text-sm mt-1">Plataforma de Vigilância</p>
+        <h1 className="text-3xl font-bold tracking-widest uppercase text-[#E8A020]">Fofoqueiro</h1>
+        <p className="text-[#E8A020]/70 text-sm mt-1 italic">Tudo em foco. Nada escapa.</p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -109,7 +109,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-2 px-4 rounded-md bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 disabled:opacity-50 transition-colors"
+          className="w-full py-2 px-4 rounded-md bg-[#E8A020] text-[#0C0E13] font-semibold text-sm hover:bg-[#E8A020]/90 disabled:opacity-50 transition-colors"
         >
           {loading ? 'Entrando...' : 'Entrar'}
         </button>

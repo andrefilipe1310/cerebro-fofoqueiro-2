@@ -123,8 +123,8 @@ services:
       target: deps
     command: npm run dev
     volumes:
-      - ./frontend/src:/app/src
-      - ./frontend/public:/app/public
+      - ./frontend:/app
+      - /app/node_modules   # preserva node_modules instalados no build do container
     environment:
       NODE_ENV: development
     ports:

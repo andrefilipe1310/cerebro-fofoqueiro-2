@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Wifi, WifiOff } from 'lucide-react';
+import { Plus, Pencil, Trash2, Wifi, WifiOff, MapPin } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import type { Camera } from '@/types';
 
@@ -12,11 +12,35 @@ interface CreateCameraForm {
   name: string; rtspUrl: string; locationId: string; lat: string; lng: string; ptzEnabled: boolean;
 }
 
+function parseGoogleMapsInput(input: string): { lat: string; lng: string } | null {
+  const s = input.trim();
+
+  // URL com @lat,lng (https://maps.google.com/.../place/.../@-23.56,-46.65,15z)
+  const atMatch = s.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (atMatch) return { lat: atMatch[1], lng: atMatch[2] };
+
+  // URL com ?q=lat,lng ou &q=lat,lng
+  const qMatch = s.match(/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (qMatch) return { lat: qMatch[1], lng: qMatch[2] };
+
+  // URL com ll=lat,lng
+  const llMatch = s.match(/[?&]ll=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (llMatch) return { lat: llMatch[1], lng: llMatch[2] };
+
+  // Coordenadas puras copiadas do Google Maps: "-23.5632, -46.6544"
+  const coordMatch = s.match(/^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$/);
+  if (coordMatch) return { lat: coordMatch[1], lng: coordMatch[2] };
+
+  return null;
+}
+
 export default function CamerasPage() {
   const qc = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [editingCamera, setEditingCamera] = useState<Camera | null>(null);
   const [form, setForm] = useState<CreateCameraForm>({ name: '', rtspUrl: '', locationId: '', lat: '', lng: '', ptzEnabled: false });
+  const [mapInput, setMapInput] = useState('');
+  const [mapInputError, setMapInputError] = useState(false);
 
   const { data, isLoading } = useQuery<Page<Camera>>({
     queryKey: ['cameras'],
@@ -39,7 +63,24 @@ export default function CamerasPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['cameras'] }),
   });
 
-  const resetForm = () => setForm({ name: '', rtspUrl: '', locationId: '', lat: '', lng: '', ptzEnabled: false });
+  const resetForm = () => {
+    setForm({ name: '', rtspUrl: '', locationId: '', lat: '', lng: '', ptzEnabled: false });
+    setMapInput('');
+    setMapInputError(false);
+  };
+
+  const handleMapInput = (value: string) => {
+    setMapInput(value);
+    setMapInputError(false);
+    if (!value.trim()) return;
+    const coords = parseGoogleMapsInput(value);
+    if (coords) {
+      setForm(f => ({ ...f, lat: coords.lat, lng: coords.lng }));
+      setMapInputError(false);
+    } else {
+      setMapInputError(true);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,6 +177,20 @@ export default function CamerasPage() {
                     className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" required />
                 </div>
               )}
+              <div>
+                <label className="flex items-center gap-1.5 text-sm font-medium mb-1">
+                  <MapPin className="h-3.5 w-3.5" /> Localização via Google Maps
+                </label>
+                <input
+                  value={mapInput}
+                  onChange={e => handleMapInput(e.target.value)}
+                  placeholder="Cole um link do Google Maps ou '-23.56, -46.65'"
+                  className={`w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring ${mapInputError ? 'border-destructive' : ''}`}
+                />
+                {mapInputError && (
+                  <p className="text-destructive text-xs mt-1">Formato não reconhecido. Copie as coordenadas direto do Google Maps (clique com botão direito → "Copiar coordenadas").</p>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium mb-1">Latitude</label>

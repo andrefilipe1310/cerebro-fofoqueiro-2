@@ -21,7 +21,9 @@ export default function MapPage() {
     const initMap = async () => {
       const L = (await import('leaflet')).default;
 
-      const map = L.map(mapRef.current!).setView([-15.78, -47.93], 5);
+      const container = mapRef.current as HTMLDivElement & { _leaflet_id?: number };
+      delete container._leaflet_id;
+      const map = L.map(container).setView([-15.78, -47.93], 5);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
       }).addTo(map);

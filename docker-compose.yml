@@ -285,6 +285,7 @@ services:
       MEDIAMTX_API_URL: http://mediamtx:9997
       MEDIAMTX_AUTH_TOKEN: ${MEDIAMTX_AUTH_TOKEN:-changeme_mediamtx}
       MEDIAMTX_PUBLIC_URL: ${MEDIAMTX_PUBLIC_URL:-http://localhost:8889}
+      MEDIAMTX_HLS_URL: ${MEDIAMTX_HLS_URL:-http://localhost:8888}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-Y2hhbmdlbWUta2V5LWZvci1kZXYtb25seQ==}
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-changeme_internal}
       R2_ENDPOINT: ${R2_ENDPOINT:-http://minio:9000}

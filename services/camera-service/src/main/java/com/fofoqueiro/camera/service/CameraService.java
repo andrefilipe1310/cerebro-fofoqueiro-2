@@ -18,8 +18,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.OffsetDateTime;
 import java.util.Map;
@@ -34,12 +38,19 @@ public class CameraService {
     private final OutboxEventRepository outboxEventRepository;
     private final EncryptionService encryptionService;
     private final ObjectMapper objectMapper;
+    private final RestTemplate restTemplate;
 
     @PersistenceContext
     private EntityManager em;
 
     @Value("${mediamtx.public-url:http://localhost:8889}")
     private String mediamtxPublicUrl;
+
+    @Value("${mediamtx.api-url:http://mediamtx:9997}")
+    private String mediamtxApiUrl;
+
+    @Value("${mediamtx.hls-url:http://localhost:8888}")
+    private String mediamtxHlsUrl;
 
     @Transactional(readOnly = true)
     public Page<CameraResponse> list(UUID tenantId, Pageable pageable) {
@@ -124,12 +135,29 @@ public class CameraService {
         String path = String.format("tenant_%s/camera_%s/main", tenantId, cameraId);
         String token = camera.getStreamToken();
 
+        registerRtspSourceInMediaMtx(path, camera);
+
         return new StreamUrlResponse(
                 String.format("%s/%s/whep?token=%s", mediamtxPublicUrl, path, token),
-                String.format("http://localhost:8888/%s/index.m3u8?token=%s", path, token),
+                String.format("%s/%s/index.m3u8?token=%s", mediamtxHlsUrl, path, token),
                 null,
                 camera.getStreamTokenExpiresAt()
         );
+    }
+
+    private void registerRtspSourceInMediaMtx(String path, Camera camera) {
+        if (camera.getRtspUrlEncrypted() == null) return;
+        try {
+            String rtspUrl = encryptionService.decrypt(camera.getRtspUrlEncrypted());
+            String url = String.format("%s/v3/config/paths/add/%s", mediamtxApiUrl, path);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            Map<String, Object> body = Map.of("source", rtspUrl, "sourceOnDemand", true);
+            restTemplate.put(url, new HttpEntity<>(body, headers));
+            log.debug("MediaMTX path registered: {}", path);
+        } catch (Exception e) {
+            log.warn("Falha ao registrar path no MediaMTX ({}): {}", path, e.getMessage());
+        }
     }
 
     private void publishCameraEvent(Camera camera, String eventType) {
