@@ -12,10 +12,8 @@ apiAddress: :9997
 
 # Auth via webhook — camera-service valida cada acesso por token HMAC
 # @see docs/SDD.md#webhook-auth-mediamtx | docs/MULTI_TENANCY.md#isolamento-midia
-auth:
-  method: http
-  http:
-    address: http://camera-service:8083/internal/media/auth
+authMethod: http
+authHTTPAddress: http://camera-service:8083/internal/media/auth
 
 # WebRTC WHEP para latência < 500ms
 # @see docs/ARCHITECTURE.md#fluxo-live (ADR-013)

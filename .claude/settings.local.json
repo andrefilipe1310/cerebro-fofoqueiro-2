@@ -4,7 +4,20 @@
       "Bash(New-Item -ItemType Directory -Force -Path \"c:\\\\Users\\\\deco_\\\\OneDrive\\\\Área de Trabalho\\\\projetos Freela\\\\Fofoqueiro\\\\cerebro 2\\\\docs\")",
       "Bash(sed -n '188,196p' \"/c/Users/brend/Desktop/andre/cerebro-fofoqueiro-2/docker-compose.yml\")",
       "Bash(sed -n '298,306p' \"/c/Users/brend/Desktop/andre/cerebro-fofoqueiro-2/docker-compose.yml\")",
-      "Bash(xxd \"/c/Users/brend/Desktop/andre/cerebro-fofoqueiro-2/infra/kafka/create-topics.sh\")"
+      "Bash(xxd \"/c/Users/brend/Desktop/andre/cerebro-fofoqueiro-2/infra/kafka/create-topics.sh\")",
+      "Bash(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\brend\\\\Desktop\\\\andre\\\\cerebro-fofoqueiro-2\\\\frontend\\\\src\\\\types\")",
+      "Bash(Out-Null)",
+      "Bash(docker exec *)",
+      "PowerShell(docker exec fofoqueiro-frontend ls /app/)",
+      "PowerShell(docker exec fofoqueiro-frontend ls /app/src/lib/api/ 2>&1)",
+      "PowerShell(docker exec fofoqueiro-frontend ls /app/src/stores/ 2>&1)",
+      "PowerShell(docker exec fofoqueiro-frontend cat /app/tsconfig.json)",
+      "PowerShell(docker exec fofoqueiro-frontend sh -c \"rm -rf /app/.next && echo 'cache cleared'\")",
+      "PowerShell(docker exec fofoqueiro-frontend sh -c \"echo NODE_ENV=\\\\$NODE_ENV\")",
+      "PowerShell(docker exec fofoqueiro-frontend printenv NODE_ENV)",
+      "PowerShell(docker exec fofoqueiro-frontend sh -c \"cd /app && pnpm run build 2>&1\")",
+      "PowerShell(docker cp \"c:\\\\Users\\\\brend\\\\Desktop\\\\andre\\\\cerebro-fofoqueiro-2\\\\frontend\\\\src\\\\types\\\\global.d.ts\" fofoqueiro-frontend:/app/src/types/global.d.ts)",
+      "PowerShell(docker cp \"c:\\\\Users\\\\brend\\\\Desktop\\\\andre\\\\cerebro-fofoqueiro-2\\\\frontend\\\\src\\\\app\\\\\\(dashboard\\)\\\\map\\\\page.tsx\" \"fofoqueiro-frontend:/app/src/app/\\(dashboard\\)/map/page.tsx\")"
     ]
   }
 }

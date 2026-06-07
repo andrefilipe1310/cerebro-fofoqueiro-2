@@ -24,16 +24,16 @@ spring:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
   mail:
-    host: ${SMTP_HOST:smtp.sendgrid.net}
-    port: ${SMTP_PORT:587}
-    username: ${SMTP_USER:apikey}
-    password: ${SMTP_PASSWORD}
+    host: ${SMTP_HOST:mailhog}
+    port: ${SMTP_PORT:1025}
+    username: ${SMTP_USER:}
+    password: ${SMTP_PASSWORD:}
     properties:
       mail:
         smtp:
-          auth: true
+          auth: false
           starttls:
-            enable: true
+            enable: false
 
 server:
   port: ${SERVER_PORT:8087}
@@ -43,6 +43,9 @@ management:
     web:
       exposure:
         include: health,info,metrics,prometheus
+  health:
+    mail:
+      enabled: false   # evita conexão SMTP no /actuator/health — credenciais variam por env
 
 email:
   from: ${EMAIL_FROM:noreply@fofoqueiro.com}
@@ -62,6 +65,17 @@ spring:
   config:
     activate:
       on-profile: prod
+  mail:
+    host: ${SMTP_HOST:smtp.sendgrid.net}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USER:apikey}
+    password: ${SMTP_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 logging:
   level:
     root: INFO

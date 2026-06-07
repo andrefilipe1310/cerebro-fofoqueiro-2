@@ -141,10 +141,10 @@ export interface ApiError {
 
 export interface LoginResponse {
   access_token: string;
-  refresh_token: string;
+  refresh_token?: string;
   expires_in: number;
   requires_2fa: boolean;
-  user: User;
+  user?: User;
 }
 
 export interface AuthState {

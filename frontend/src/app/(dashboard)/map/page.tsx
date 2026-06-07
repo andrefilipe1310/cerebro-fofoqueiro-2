@@ -1,5 +1,6 @@
 'use client';
 
+import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
@@ -19,7 +20,6 @@ export default function MapPage() {
 
     const initMap = async () => {
       const L = (await import('leaflet')).default;
-      await import('leaflet/dist/leaflet.css');
 
       const map = L.map(mapRef.current!).setView([-15.78, -47.93], 5);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -55,7 +55,7 @@ export default function MapPage() {
           });
           L.marker([cam.lat!, cam.lng!], { icon })
             .bindPopup(`<b>${cam.name}</b><br>Status: <b style="color:${cam.status === 'ONLINE' ? 'green' : 'red'}">${cam.status}</b>`)
-            .addTo(map as unknown as Parameters<typeof L.marker>[1]);
+            .addTo(map as unknown as L.Map);
         });
     };
     addMarkers();

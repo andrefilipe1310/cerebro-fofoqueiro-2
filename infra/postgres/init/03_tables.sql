@@ -254,3 +254,48 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA cameras    TO camera_service_user;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA health     TO chms_service_user;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA alerts     TO alert_service_user;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA recordings TO recording_service_user;
+
+-- ─── TRANSFER DE OWNERSHIP PARA SERVICE USERS ────────────────────────────────
+-- GRANT ALL cobre DML (SELECT/INSERT/UPDATE/DELETE), mas ALTER TABLE é DDL e
+-- exige que o executante seja OWNER da tabela.
+-- O Flyway roda como o service user e precisará de DDL nas migrações V2+.
+-- Todas as tabelas criadas acima pelo superuser (postgres) devem ser
+-- transferidas para o respectivo service user de cada schema.
+
+DO $$
+DECLARE
+    r RECORD;
+    schema_role JSONB := '{
+        "tenants":    "tenant_service_user",
+        "auth":       "auth_service_user",
+        "cameras":    "camera_service_user",
+        "health":     "chms_service_user",
+        "recordings": "recording_service_user",
+        "alerts":     "alert_service_user",
+        "audit":      "audit_service_user"
+    }';
+BEGIN
+    FOR r IN
+        SELECT schemaname, tablename
+        FROM   pg_tables
+        WHERE  schemaname IN ('tenants','auth','cameras','health','recordings','alerts','audit')
+    LOOP
+        EXECUTE format(
+            'ALTER TABLE %I.%I OWNER TO %I',
+            r.schemaname, r.tablename,
+            schema_role ->> r.schemaname
+        );
+    END LOOP;
+
+    FOR r IN
+        SELECT sequence_schema AS s, sequence_name AS n
+        FROM   information_schema.sequences
+        WHERE  sequence_schema IN ('tenants','auth','cameras','health','recordings','alerts','audit')
+    LOOP
+        EXECUTE format(
+            'ALTER SEQUENCE %I.%I OWNER TO %I',
+            r.s, r.n,
+            schema_role ->> r.s
+        );
+    END LOOP;
+END $$;

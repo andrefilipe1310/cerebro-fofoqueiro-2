@@ -12,11 +12,11 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: ({ email, password, tenantSlug }: { email: string; password: string; tenantSlug: string }) =>
-      authApi.login(email, password, tenantSlug),
+      authApi.login(tenantSlug, email, password),
     onSuccess: ({ data }) => {
       if (!data.requires_2fa) {
         sessionStorage.setItem('access_token', data.access_token);
-        sessionStorage.setItem('refresh_token', data.refresh_token);
+        if (data.refresh_token) sessionStorage.setItem('refresh_token', data.refresh_token);
       }
     },
   });
