@@ -46,11 +46,11 @@ services:
       SPRING_DEVTOOLS_RESTART_ENABLED: "true"
       SPRING_DEVTOOLS_RESTART_POLL_INTERVAL: "2s"
 
-  tenant-service:
+  organization-service:
     build:
       context: ./services/tenant-service
       target: builder
-    image: fofoqueiro/tenant-service:dev
+    image: fofoqueiro/organization-service:dev
     command: mvn spring-boot:run -Dspring-boot.run.profiles=dev
     volumes:
       - ./services/tenant-service:/app

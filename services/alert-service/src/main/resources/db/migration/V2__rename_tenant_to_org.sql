@@ -1,12 +1,17 @@
 -- @path services/alert-service/src/main/resources/db/migration/V2__rename_tenant_to_org.sql
 -- @owner alert-service
--- @responsibility Renomeia tenant_id → org_id e atualiza políticas RLS
+-- @responsibility Rename tenant_id → org_id (idempotente)
 
-ALTER TABLE alerts.alerts RENAME COLUMN tenant_id TO org_id;
-
-ALTER INDEX IF EXISTS idx_alerts_tenant_id RENAME TO idx_alerts_org_id;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_schema='alerts' AND table_name='alerts' AND column_name='tenant_id') THEN
+        ALTER TABLE alerts.alerts RENAME COLUMN tenant_id TO org_id;
+    END IF;
+END $$;
 
 DROP POLICY IF EXISTS tenant_isolation_alerts ON alerts.alerts;
+DROP POLICY IF EXISTS org_isolation_alerts    ON alerts.alerts;
 
 CREATE POLICY org_isolation_alerts ON alerts.alerts
     AS PERMISSIVE FOR ALL

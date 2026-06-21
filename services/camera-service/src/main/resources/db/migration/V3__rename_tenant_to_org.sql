@@ -1,19 +1,38 @@
 -- @path services/camera-service/src/main/resources/db/migration/V3__rename_tenant_to_org.sql
 -- @owner camera-service
--- @responsibility Renomeia tenant_id → org_id e atualiza políticas RLS
+-- @responsibility Rename tenant_id → org_id (idempotente — no-op se coluna já é org_id)
 
-ALTER TABLE cameras.cameras       RENAME COLUMN tenant_id TO org_id;
-ALTER TABLE cameras.locations     RENAME COLUMN tenant_id TO org_id;
-ALTER TABLE cameras.privacy_zones RENAME COLUMN tenant_id TO org_id;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_schema='cameras' AND table_name='cameras' AND column_name='tenant_id') THEN
+        ALTER TABLE cameras.cameras RENAME COLUMN tenant_id TO org_id;
+    END IF;
+END $$;
 
--- Atualiza índices
-ALTER INDEX IF EXISTS idx_cameras_tenant_id    RENAME TO idx_cameras_org_id;
-ALTER INDEX IF EXISTS idx_locations_tenant_id  RENAME TO idx_locations_org_id;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_schema='cameras' AND table_name='locations' AND column_name='tenant_id') THEN
+        ALTER TABLE cameras.locations RENAME COLUMN tenant_id TO org_id;
+    END IF;
+END $$;
 
--- Atualiza políticas RLS: tenant_isolation → org_isolation
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_schema='cameras' AND table_name='privacy_zones' AND column_name='tenant_id') THEN
+        ALTER TABLE cameras.privacy_zones RENAME COLUMN tenant_id TO org_id;
+    END IF;
+END $$;
+
+-- Atualiza políticas RLS (drop+create é idempotente)
 DROP POLICY IF EXISTS tenant_isolation_cameras       ON cameras.cameras;
 DROP POLICY IF EXISTS tenant_isolation_locations     ON cameras.locations;
 DROP POLICY IF EXISTS tenant_isolation_privacy_zones ON cameras.privacy_zones;
+DROP POLICY IF EXISTS org_isolation_cameras          ON cameras.cameras;
+DROP POLICY IF EXISTS org_isolation_locations        ON cameras.locations;
+DROP POLICY IF EXISTS org_isolation_privacy_zones    ON cameras.privacy_zones;
 
 CREATE POLICY org_isolation_cameras ON cameras.cameras
     AS PERMISSIVE FOR ALL

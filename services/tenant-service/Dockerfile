@@ -1,6 +1,7 @@
 # @path services/tenant-service/Dockerfile
-# @owner tenant-service
+# @owner organization-service
 # @responsibility Multi-stage build — imagem mínima com usuário não-root
+
 FROM maven:3.9-eclipse-temurin-21-alpine AS builder
 WORKDIR /app
 COPY pom.xml .
@@ -14,4 +15,5 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 COPY --from=builder /app/target/*.jar app.jar
 EXPOSE 8082
-ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:-dev}", "-jar", "app.jar"]
+# Shell form (sh -c) garante que variáveis de ambiente Docker são expandidas
+ENTRYPOINT ["sh", "-c", "java -Djava.security.egd=file:/dev/./urandom -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:-dev} -jar app.jar"]

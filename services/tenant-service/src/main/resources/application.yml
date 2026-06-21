@@ -8,9 +8,9 @@ spring:
     name: organization-service
 
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:platform}
+    url: jdbc:postgresql://${POSTGRES_HOST:postgres}:${POSTGRES_PORT:5432}/${POSTGRES_DB:platform}
     username: ${ORG_DB_USER:org_service_user}
-    password: ${ORG_DB_PASSWORD}
+    password: ${ORG_DB_PASSWORD:changeme_org}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10

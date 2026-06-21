@@ -22,7 +22,10 @@
       "Bash(node -e ' *)",
       "Bash(python3 -c \"import bcrypt; print\\(bcrypt.hashpw\\(b'senha123', bcrypt.gensalt\\(12\\)\\).decode\\(\\)\\)\")",
       "Bash(python -c \"import bcrypt; print\\(bcrypt.hashpw\\(b'senha123', bcrypt.gensalt\\(12\\)\\).decode\\(\\)\\)\")",
-      "Bash(docker run *)"
+      "Bash(docker run *)",
+      "Bash(xargs -I{} grep \"ENTRYPOINT\" {})",
+      "Bash(docker stop *)",
+      "Bash(docker rm *)"
     ]
   }
 }

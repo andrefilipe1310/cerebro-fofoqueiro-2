@@ -14,4 +14,4 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 COPY --from=builder /app/target/*.jar app.jar
 EXPOSE 8086
-ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:-dev}", "-jar", "app.jar"]
+ENTRYPOINT ["sh", "-c", "java -Djava.security.egd=file:/dev/./urandom -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:-dev} -jar app.jar"]

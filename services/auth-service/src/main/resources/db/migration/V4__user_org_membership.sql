@@ -5,7 +5,7 @@
 
 -- ─── JOIN TABLE: user ↔ organization (N:M) ──────────────────────────────────
 
-CREATE TABLE auth.user_memberships (
+CREATE TABLE IF NOT EXISTS auth.user_memberships (
     id         UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id    UUID          NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     org_id     UUID          NOT NULL,
@@ -15,13 +15,18 @@ CREATE TABLE auth.user_memberships (
     UNIQUE (user_id, org_id)
 );
 
-CREATE INDEX idx_memberships_user_id ON auth.user_memberships (user_id);
-CREATE INDEX idx_memberships_org_id  ON auth.user_memberships (org_id);
-CREATE INDEX idx_memberships_active  ON auth.user_memberships (active) WHERE active = TRUE;
+CREATE INDEX IF NOT EXISTS idx_memberships_user_id ON auth.user_memberships (user_id);
+CREATE INDEX IF NOT EXISTS idx_memberships_org_id  ON auth.user_memberships (org_id);
+CREATE INDEX IF NOT EXISTS idx_memberships_active  ON auth.user_memberships (active) WHERE active = TRUE;
 
-CREATE TRIGGER user_memberships_set_updated_at
-    BEFORE UPDATE ON auth.user_memberships
-    FOR EACH ROW EXECUTE FUNCTION auth.trigger_set_updated_at();
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'user_memberships_set_updated_at') THEN
+        CREATE TRIGGER user_memberships_set_updated_at
+            BEFORE UPDATE ON auth.user_memberships
+            FOR EACH ROW EXECUTE FUNCTION auth.trigger_set_updated_at();
+    END IF;
+END $$;
 
 -- ─── MIGRAÇÃO DE DADOS: auth.users → auth.user_memberships ──────────────────
 -- Preserva tenant_id e role existentes como memberships

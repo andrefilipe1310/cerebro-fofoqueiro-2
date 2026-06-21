@@ -1,7 +1,11 @@
 -- @path services/audit-service/src/main/resources/db/migration/V3__rename_tenant_to_org.sql
 -- @owner audit-service
--- @responsibility Renomeia tenant_id → org_id (audit não tem RLS — imutável por design)
+-- @responsibility Rename tenant_id → org_id (idempotente — audit não tem RLS)
 
-ALTER TABLE audit.audit_logs RENAME COLUMN tenant_id TO org_id;
-
-ALTER INDEX IF EXISTS idx_audit_logs_tenant_id RENAME TO idx_audit_logs_org_id;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_schema='audit' AND table_name='audit_logs' AND column_name='tenant_id') THEN
+        ALTER TABLE audit.audit_logs RENAME COLUMN tenant_id TO org_id;
+    END IF;
+END $$;

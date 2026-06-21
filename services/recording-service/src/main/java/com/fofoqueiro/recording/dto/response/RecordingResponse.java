@@ -9,7 +9,7 @@ import java.util.UUID;
 public record RecordingResponse(
         UUID id,
         @JsonProperty("camera_id") UUID cameraId,
-        @JsonProperty("tenant_id") UUID tenantId,
+        @JsonProperty("org_id") UUID orgId,
         @JsonProperty("r2_key") String r2Key,
         @JsonProperty("started_at") OffsetDateTime startedAt,
         @JsonProperty("ended_at") OffsetDateTime endedAt,
@@ -18,7 +18,7 @@ public record RecordingResponse(
         @JsonProperty("has_motion") boolean hasMotion
 ) {
     public static RecordingResponse from(Recording r) {
-        return new RecordingResponse(r.getId(), r.getCameraId(), r.getTenantId(),
+        return new RecordingResponse(r.getId(), r.getCameraId(), r.getOrgId(),
                 r.getR2Key(), r.getStartedAt(), r.getEndedAt(),
                 r.getDurationSeconds(), r.getSizeBytes(), r.isHasMotion());
     }

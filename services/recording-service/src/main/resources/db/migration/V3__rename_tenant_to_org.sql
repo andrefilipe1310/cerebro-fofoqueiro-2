@@ -1,12 +1,17 @@
 -- @path services/recording-service/src/main/resources/db/migration/V3__rename_tenant_to_org.sql
 -- @owner recording-service
--- @responsibility Renomeia tenant_id → org_id e atualiza políticas RLS
+-- @responsibility Rename tenant_id → org_id (idempotente)
 
-ALTER TABLE recordings.recordings RENAME COLUMN tenant_id TO org_id;
-
-ALTER INDEX IF EXISTS idx_recordings_tenant_id RENAME TO idx_recordings_org_id;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_schema='recordings' AND table_name='recordings' AND column_name='tenant_id') THEN
+        ALTER TABLE recordings.recordings RENAME COLUMN tenant_id TO org_id;
+    END IF;
+END $$;
 
 DROP POLICY IF EXISTS tenant_isolation_recordings ON recordings.recordings;
+DROP POLICY IF EXISTS org_isolation_recordings    ON recordings.recordings;
 
 CREATE POLICY org_isolation_recordings ON recordings.recordings
     AS PERMISSIVE FOR ALL
