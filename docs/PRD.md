@@ -6,6 +6,7 @@ Documentos relacionados:
   - [Arquitetura](./ARCHITECTURE.md)
   - [Multi-Tenancy](./MULTI_TENANCY.md)
   - [Tech Stack](./TECH_STACK.md)
+  - [Implementation Tracker](./IMPLEMENTATION_TRACKER.md)
 -->
 
 # PRD — Product Requirements Document {#prd}

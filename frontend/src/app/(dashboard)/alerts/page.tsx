@@ -41,7 +41,11 @@ export default function AlertsPage() {
 
   useEffect(() => {
     if (!tenant?.id) return;
-    const wsUrl = (process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:8086') + '/ws';
+    // SockJS exige http:// ou https:// — converte ws:// e wss:// automaticamente
+    const wsBase = (process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:8086')
+      .replace(/^ws:\/\//, 'http://')
+      .replace(/^wss:\/\//, 'https://');
+    const wsUrl = wsBase + '/ws';
     const token = sessionStorage.getItem('access_token') ?? '';
 
     const client = new Client({

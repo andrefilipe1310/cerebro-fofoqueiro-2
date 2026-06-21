@@ -9,6 +9,7 @@ Documentos relacionados:
   - [API Contracts](./API_CONTRACTS.md)
   - [ENV Config](./ENV_CONFIG.md)
   - [Security LGPD](./SECURITY_LGPD.md)
+  - [Implementation Tracker](./IMPLEMENTATION_TRACKER.md)
 -->
 
 # Arquitetura do Sistema — Microserviços {#architecture}

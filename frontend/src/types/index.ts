@@ -144,7 +144,10 @@ export interface LoginResponse {
   refresh_token?: string;
   expires_in: number;
   requires_2fa: boolean;
-  user?: User;
+  temp_token?: string;
+  user_id?: string;
+  tenant_id?: string;
+  role?: string;
 }
 
 export interface AuthState {

@@ -71,6 +71,15 @@ encryption:
 internal:
   api-secret: ${INTERNAL_API_SECRET}
 
+springdoc:
+  swagger-ui:
+    path: /docs
+    operations-sorter: method
+    try-it-out-enabled: true
+  api-docs:
+    path: /v3/api-docs
+  show-actuator: false
+
 ---
 spring:
   config:

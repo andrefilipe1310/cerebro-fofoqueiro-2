@@ -13,7 +13,6 @@ VALUES (
 ) ON CONFLICT (slug) DO NOTHING;
 
 -- Usuário admin (senha: Demo@123456 — hash bcrypt strength 12)
--- IMPORTANTE: Gere o hash real com: htpasswd -bnBC 12 "" 'Demo@123456' | tr -d ':\n' | sed 's/$2y/$2a/'
 INSERT INTO auth.users (id, tenant_id, email, password_hash, role, totp_enabled, active, created_at, updated_at)
 VALUES (
     '00000000-0000-0000-0000-000000000010',
@@ -23,13 +22,33 @@ VALUES (
     'ADMIN', false, true, NOW(), NOW()
 ) ON CONFLICT DO NOTHING;
 
--- Usuário operador
+-- Usuário operador (senha: Demo@123456)
 INSERT INTO auth.users (id, tenant_id, email, password_hash, role, totp_enabled, active, created_at, updated_at)
 VALUES (
     '00000000-0000-0000-0000-000000000011',
     '00000000-0000-0000-0000-000000000001',
     'operador@demo.com',
     '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeK5F8FPlv8vA5Hq2',
+    'OPERATOR', false, true, NOW(), NOW()
+) ON CONFLICT DO NOTHING;
+
+-- Usuário admin principal (senha: senha123)
+INSERT INTO auth.users (id, tenant_id, email, password_hash, role, totp_enabled, active, created_at, updated_at)
+VALUES (
+    '00000000-0000-0000-0000-000000000012',
+    '00000000-0000-0000-0000-000000000001',
+    'admin@email.com',
+    '$2a$12$.oMH/pPapT76dysY50RLIu3JH2Hhb3x5tG5m/8OBiROVHRbizS/qG',
+    'ADMIN', false, true, NOW(), NOW()
+) ON CONFLICT DO NOTHING;
+
+-- Usuário operador principal (senha: senha123)
+INSERT INTO auth.users (id, tenant_id, email, password_hash, role, totp_enabled, active, created_at, updated_at)
+VALUES (
+    '00000000-0000-0000-0000-000000000013',
+    '00000000-0000-0000-0000-000000000001',
+    'operador@email.com',
+    '$2a$12$.oMH/pPapT76dysY50RLIu3JH2Hhb3x5tG5m/8OBiROVHRbizS/qG',
     'OPERATOR', false, true, NOW(), NOW()
 ) ON CONFLICT DO NOTHING;
 

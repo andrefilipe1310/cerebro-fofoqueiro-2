@@ -53,6 +53,15 @@ management:
       exposure:
         include: health,info,metrics,prometheus
 
+springdoc:
+  swagger-ui:
+    path: /docs
+    operations-sorter: method
+    try-it-out-enabled: true
+  api-docs:
+    path: /v3/api-docs
+  show-actuator: false
+
 ---
 spring:
   config:

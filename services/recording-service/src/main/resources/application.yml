@@ -59,6 +59,15 @@ r2:
   bucket: ${R2_BUCKET_NAME}
   public-url: ${R2_PUBLIC_URL}
 
+springdoc:
+  swagger-ui:
+    path: /docs
+    operations-sorter: method
+    try-it-out-enabled: true
+  api-docs:
+    path: /v3/api-docs
+  show-actuator: false
+
 ---
 spring:
   config:

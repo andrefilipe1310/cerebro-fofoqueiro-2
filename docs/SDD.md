@@ -8,6 +8,7 @@ Documentos relacionados:
   - [Security LGPD](./SECURITY_LGPD.md)
   - [Media Pipeline](./MEDIA_PIPELINE.md)
   - [Multi-Tenancy](./MULTI_TENANCY.md)
+  - [Implementation Tracker](./IMPLEMENTATION_TRACKER.md)
 -->
 
 # SDD — Software Design Document {#sdd}

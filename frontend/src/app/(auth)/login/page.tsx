@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { tenantsApi } from '@/lib/api/tenants';
 import { authApi } from '@/lib/api/auth';
 import { useAuthStore } from '@/stores/auth.store';
+import type { UserRole, TenantPlan } from '@/types';
 
 const schema = z.object({
   tenantSlug: z.string().min(1, 'Informe o slug do tenant'),
@@ -42,14 +43,32 @@ export default function LoginPage() {
       document.cookie = `access_token=${authData.access_token}; path=/; SameSite=Lax`;
 
       if (authData.requires_2fa) {
-        sessionStorage.setItem('temp_token', authData.access_token);
+        sessionStorage.setItem('temp_token', authData.temp_token ?? authData.access_token);
         router.push('/2fa');
         return;
       }
 
-      if (authData.user) {
-        setUser(authData.user, { ...tenantConfig, plan: 'STARTER', limits: { cameras_max: 10, cameras_current: 0, users_max: 5, retention_days: 30 } });
-      }
+      setUser(
+        {
+          id: authData.user_id ?? '',
+          email: data.email,
+          role: (authData.role ?? 'VIEWER') as UserRole,
+          totp_enabled: false,
+        },
+        {
+          id: tenantConfig.id,
+          name: tenantConfig.name,
+          slug: data.tenantSlug,
+          plan: (tenantConfig.plan ?? 'STARTER') as TenantPlan,
+          logo_url: tenantConfig.logo_url ?? null,
+          limits: {
+            cameras_max: tenantConfig.max_cameras ?? 10,
+            cameras_current: 0,
+            users_max: tenantConfig.max_users ?? 5,
+            retention_days: tenantConfig.retention_days ?? 30,
+          },
+        }
+      );
 
       router.push('/cameras');
     } catch (err: unknown) {

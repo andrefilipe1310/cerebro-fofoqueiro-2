@@ -5,8 +5,14 @@ export interface TenantConfig {
   id: string;
   slug: string;
   name: string;
+  domain: string | null;
+  plan: string | null;
   logo_url: string | null;
   css_override: string | null;
+  max_cameras: number;
+  max_users: number;
+  retention_days: number;
+  status: string;
 }
 
 export const tenantsApi = {

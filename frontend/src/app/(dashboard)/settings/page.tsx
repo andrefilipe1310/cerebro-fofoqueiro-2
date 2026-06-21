@@ -28,7 +28,7 @@ export default function SettingsPage() {
     queryFn: () => apiClient.get('/tenants/me').then(r => r.data),
   });
 
-  const { data: usersData, isLoading: loadingUsers } = useQuery<{ content: UserRecord[] }>({
+  const { data: usersData, isLoading: loadingUsers } = useQuery<UserRecord[]>({
     queryKey: ['users'],
     queryFn: () => apiClient.get('/users').then(r => r.data),
     enabled: tab === 'users',
@@ -144,10 +144,10 @@ export default function SettingsPage() {
               <tbody className="divide-y">
                 {loadingUsers ? (
                   <tr><td colSpan={3} className="px-4 py-6 text-center text-muted-foreground">Carregando...</td></tr>
-                ) : (usersData?.content ?? []).length === 0 ? (
+                ) : (usersData ?? []).length === 0 ? (
                   <tr><td colSpan={3} className="px-4 py-6 text-center text-muted-foreground">Nenhum usuário encontrado.</td></tr>
                 ) : (
-                  (usersData?.content ?? []).map((u) => (
+                  (usersData ?? []).map((u) => (
                     <tr key={u.id} className="hover:bg-muted/25">
                       <td className="px-4 py-3">{u.email}</td>
                       <td className="px-4 py-3">
