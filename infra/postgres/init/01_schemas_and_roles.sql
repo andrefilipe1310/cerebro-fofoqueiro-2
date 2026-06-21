@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- ─── SCHEMAS ────────────────────────────────────────────────────────────────
 CREATE SCHEMA IF NOT EXISTS auth;
-CREATE SCHEMA IF NOT EXISTS tenants;
+CREATE SCHEMA IF NOT EXISTS organizations;
 CREATE SCHEMA IF NOT EXISTS cameras;
 CREATE SCHEMA IF NOT EXISTS health;
 CREATE SCHEMA IF NOT EXISTS recordings;
@@ -28,16 +28,18 @@ GRANT ALL ON SCHEMA auth TO auth_service_user;
 GRANT USAGE ON SCHEMA auth TO auth_service_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA auth GRANT ALL ON TABLES TO auth_service_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA auth GRANT ALL ON SEQUENCES TO auth_service_user;
+-- auth-service lê dados básicos de organizations para popular o org picker no login
+GRANT USAGE ON SCHEMA organizations TO auth_service_user;
 
 DO $$ BEGIN
-    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'tenant_service_user') THEN
-        CREATE ROLE tenant_service_user WITH LOGIN PASSWORD 'changeme_tenant';
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'org_service_user') THEN
+        CREATE ROLE org_service_user WITH LOGIN PASSWORD 'changeme_org';
     END IF;
 END $$;
-GRANT ALL ON SCHEMA tenants TO tenant_service_user;
-GRANT USAGE ON SCHEMA tenants TO tenant_service_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA tenants GRANT ALL ON TABLES TO tenant_service_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA tenants GRANT ALL ON SEQUENCES TO tenant_service_user;
+GRANT ALL ON SCHEMA organizations TO org_service_user;
+GRANT USAGE ON SCHEMA organizations TO org_service_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA organizations GRANT ALL ON TABLES TO org_service_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA organizations GRANT ALL ON SEQUENCES TO org_service_user;
 
 DO $$ BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'camera_service_user') THEN
@@ -90,9 +92,10 @@ GRANT USAGE ON SCHEMA audit TO audit_service_user;
 
 -- ─── ISOLAMENTO CRUZADO ──────────────────────────────────────────────────────
 -- Nenhum serviço acessa schema de outro serviço
-REVOKE ALL ON SCHEMA auth      FROM tenant_service_user, camera_service_user, chms_service_user, recording_service_user, alert_service_user, audit_service_user;
-REVOKE ALL ON SCHEMA tenants   FROM auth_service_user, camera_service_user, chms_service_user, recording_service_user, alert_service_user, audit_service_user;
-REVOKE ALL ON SCHEMA cameras   FROM auth_service_user, tenant_service_user, chms_service_user, recording_service_user, alert_service_user, audit_service_user;
-REVOKE ALL ON SCHEMA health    FROM auth_service_user, tenant_service_user, camera_service_user, recording_service_user, alert_service_user, audit_service_user;
-REVOKE ALL ON SCHEMA recordings FROM auth_service_user, tenant_service_user, camera_service_user, chms_service_user, alert_service_user, audit_service_user;
-REVOKE ALL ON SCHEMA alerts    FROM auth_service_user, tenant_service_user, camera_service_user, chms_service_user, recording_service_user, audit_service_user;
+-- auth_service_user tem USAGE em organizations (read-only via GRANT abaixo após criação das tabelas)
+REVOKE ALL ON SCHEMA auth          FROM org_service_user, camera_service_user, chms_service_user, recording_service_user, alert_service_user, audit_service_user;
+REVOKE ALL ON SCHEMA organizations FROM camera_service_user, chms_service_user, recording_service_user, alert_service_user, audit_service_user;
+REVOKE ALL ON SCHEMA cameras       FROM auth_service_user, org_service_user, chms_service_user, recording_service_user, alert_service_user, audit_service_user;
+REVOKE ALL ON SCHEMA health        FROM auth_service_user, org_service_user, camera_service_user, recording_service_user, alert_service_user, audit_service_user;
+REVOKE ALL ON SCHEMA recordings    FROM auth_service_user, org_service_user, camera_service_user, chms_service_user, alert_service_user, audit_service_user;
+REVOKE ALL ON SCHEMA alerts        FROM auth_service_user, org_service_user, camera_service_user, chms_service_user, recording_service_user, audit_service_user;

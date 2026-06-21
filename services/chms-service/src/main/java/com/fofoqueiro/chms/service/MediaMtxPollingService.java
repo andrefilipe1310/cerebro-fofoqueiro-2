@@ -41,8 +41,8 @@ public class MediaMtxPollingService {
         List<CameraHealthState> allStates = healthStateRepository.findAll();
 
         for (CameraHealthState state : allStates) {
-            String expectedPath = String.format("tenant_%s/camera_%s/main",
-                    state.getTenantId(), state.getCameraId());
+            String expectedPath = String.format("org_%s/camera_%s/main",
+                    state.getOrgId(), state.getCameraId());
             boolean isOnline = activePaths.contains(expectedPath);
 
             String previousStatus = state.getStatus();
@@ -62,7 +62,7 @@ public class MediaMtxPollingService {
 
                 HealthEvent event = HealthEvent.builder()
                         .cameraId(state.getCameraId())
-                        .tenantId(state.getTenantId())
+                        .orgId(state.getOrgId())
                         .type(eventType)
                         .severity(severity)
                         .build();
@@ -102,7 +102,7 @@ public class MediaMtxPollingService {
         try {
             Map<String, Object> payload = Map.of(
                     "cameraId", state.getCameraId().toString(),
-                    "tenantId", state.getTenantId().toString(),
+                    "orgId", state.getOrgId().toString(),
                     "eventType", eventType,
                     "severity", severity,
                     "status", state.getStatus()

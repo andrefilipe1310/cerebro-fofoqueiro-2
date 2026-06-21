@@ -19,8 +19,8 @@ public class AuditLog {
     @Column(name = "event_id", nullable = false, unique = true)
     private String eventId;
 
-    @Column(name = "tenant_id", nullable = false)
-    private UUID tenantId;
+    @Column(name = "org_id", nullable = false)
+    private UUID orgId;
 
     @Column(name = "user_id")
     private UUID userId;

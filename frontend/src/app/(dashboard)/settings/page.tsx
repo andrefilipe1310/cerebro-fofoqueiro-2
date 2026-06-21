@@ -25,7 +25,7 @@ export default function SettingsPage() {
 
   const { data: tenant } = useQuery<TenantSettings>({
     queryKey: ['tenant-settings'],
-    queryFn: () => apiClient.get('/tenants/me').then(r => r.data),
+    queryFn: () => apiClient.get('/organizations/me').then(r => r.data),
   });
 
   const { data: usersData, isLoading: loadingUsers } = useQuery<UserRecord[]>({
@@ -35,7 +35,7 @@ export default function SettingsPage() {
   });
 
   const updateTenant = useMutation({
-    mutationFn: (payload: Partial<TenantSettings>) => apiClient.put('/tenants/me', payload).then(r => r.data),
+    mutationFn: (payload: Partial<TenantSettings>) => apiClient.put('/organizations/me', payload).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tenant-settings'] }),
   });
 

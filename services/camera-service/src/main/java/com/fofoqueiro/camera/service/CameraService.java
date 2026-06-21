@@ -53,26 +53,26 @@ public class CameraService {
     private String mediamtxHlsUrl;
 
     @Transactional(readOnly = true)
-    public Page<CameraResponse> list(UUID tenantId, Pageable pageable) {
-        setRls(tenantId);
-        return cameraRepository.findActiveByTenantId(tenantId, pageable)
+    public Page<CameraResponse> list(UUID orgId, Pageable pageable) {
+        setRls(orgId);
+        return cameraRepository.findActiveByOrgId(orgId, pageable)
                 .map(CameraResponse::from);
     }
 
     @Transactional(readOnly = true)
-    public CameraResponse getById(UUID tenantId, UUID cameraId) {
-        setRls(tenantId);
-        Camera camera = cameraRepository.findByTenantIdAndId(tenantId, cameraId)
+    public CameraResponse getById(UUID orgId, UUID cameraId) {
+        setRls(orgId);
+        Camera camera = cameraRepository.findByOrgIdAndId(orgId, cameraId)
                 .orElseThrow(() -> new EntityNotFoundException("Câmera não encontrada"));
         return CameraResponse.from(camera);
     }
 
     @Transactional
-    public CameraResponse create(UUID tenantId, CreateCameraRequest req) {
-        setRls(tenantId);
+    public CameraResponse create(UUID orgId, CreateCameraRequest req) {
+        setRls(orgId);
 
         Camera camera = Camera.builder()
-                .tenantId(tenantId)
+                .orgId(orgId)
                 .locationId(req.locationId())
                 .name(req.name())
                 .rtspUrlEncrypted(req.rtspUrl() != null ? encryptionService.encrypt(req.rtspUrl()) : null)
@@ -89,9 +89,9 @@ public class CameraService {
     }
 
     @Transactional
-    public CameraResponse update(UUID tenantId, UUID cameraId, UpdateCameraRequest req) {
-        setRls(tenantId);
-        Camera camera = cameraRepository.findByTenantIdAndId(tenantId, cameraId)
+    public CameraResponse update(UUID orgId, UUID cameraId, UpdateCameraRequest req) {
+        setRls(orgId);
+        Camera camera = cameraRepository.findByOrgIdAndId(orgId, cameraId)
                 .orElseThrow(() -> new EntityNotFoundException("Câmera não encontrada"));
 
         if (req.name() != null) camera.setName(req.name());
@@ -109,9 +109,9 @@ public class CameraService {
     }
 
     @Transactional
-    public void delete(UUID tenantId, UUID cameraId) {
-        setRls(tenantId);
-        Camera camera = cameraRepository.findByTenantIdAndId(tenantId, cameraId)
+    public void delete(UUID orgId, UUID cameraId) {
+        setRls(orgId);
+        Camera camera = cameraRepository.findByOrgIdAndId(orgId, cameraId)
                 .orElseThrow(() -> new EntityNotFoundException("Câmera não encontrada"));
         camera.setStatus(CameraStatus.DELETED);
         cameraRepository.save(camera);
@@ -119,9 +119,9 @@ public class CameraService {
     }
 
     @Transactional
-    public StreamUrlResponse getStreamUrl(UUID tenantId, UUID cameraId) {
-        setRls(tenantId);
-        Camera camera = cameraRepository.findByTenantIdAndId(tenantId, cameraId)
+    public StreamUrlResponse getStreamUrl(UUID orgId, UUID cameraId) {
+        setRls(orgId);
+        Camera camera = cameraRepository.findByOrgIdAndId(orgId, cameraId)
                 .orElseThrow(() -> new EntityNotFoundException("Câmera não encontrada"));
 
         if (camera.getStreamToken() == null || camera.getStreamTokenExpiresAt() == null
@@ -132,7 +132,7 @@ public class CameraService {
             cameraRepository.save(camera);
         }
 
-        String path = String.format("tenant_%s/camera_%s/main", tenantId, cameraId);
+        String path = String.format("org_%s/camera_%s/main", orgId, cameraId);
         String token = camera.getStreamToken();
 
         registerRtspSourceInMediaMtx(path, camera);
@@ -164,7 +164,7 @@ public class CameraService {
         try {
             Map<String, Object> payload = Map.of(
                     "cameraId", camera.getId().toString(),
-                    "tenantId", camera.getTenantId().toString(),
+                    "orgId", camera.getOrgId().toString(),
                     "name", camera.getName(),
                     "status", camera.getStatus().name()
             );
@@ -180,10 +180,10 @@ public class CameraService {
         }
     }
 
-    private void setRls(UUID tenantId) {
-        if (tenantId != null) {
-            em.createNativeQuery("SELECT set_config('app.current_tenant_id', :tid, true)")
-              .setParameter("tid", tenantId.toString())
+    private void setRls(UUID orgId) {
+        if (orgId != null) {
+            em.createNativeQuery("SELECT set_config('app.current_org_id', :tid, true)")
+              .setParameter("tid", orgId.toString())
               .getSingleResult();
         }
     }

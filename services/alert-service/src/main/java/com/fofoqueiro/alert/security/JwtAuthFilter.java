@@ -30,12 +30,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(header) && header.startsWith("Bearer ")) {
             try {
                 Claims c = jwtService.validateAndExtractClaims(header.substring(7));
-                TenantContext.set(UUID.fromString(c.get("tenantId", String.class)));
+                String orgId = c.get("orgId", String.class);
+                if (orgId != null) OrgContext.set(UUID.fromString(orgId));
                 SecurityContextHolder.getContext().setAuthentication(
                         new UsernamePasswordAuthenticationToken(c.getSubject(), null,
                                 List.of(new SimpleGrantedAuthority("ROLE_" + c.get("role", String.class)))));
             } catch (JwtException ignored) {}
         }
-        try { chain.doFilter(req, res); } finally { TenantContext.clear(); }
+        try { chain.doFilter(req, res); } finally { OrgContext.clear(); }
     }
 }

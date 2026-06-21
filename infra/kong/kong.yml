@@ -16,13 +16,13 @@ services:
         strip_path: false
         methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
 
-  - name: tenant-service
-    url: http://tenant-service:8082
+  - name: organization-service
+    url: http://organization-service:8082
     connect_timeout: 5000
     read_timeout: 10000
     routes:
-      - name: tenant-routes
-        paths: ["/api/v1/tenants", "/api/v1/users", "/api/v1/admin/tenants"]
+      - name: organization-routes
+        paths: ["/api/v1/organizations", "/api/v1/users", "/api/v1/admin/organizations"]
         strip_path: false
         methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
 
@@ -97,7 +97,7 @@ plugins:
         - "http://localhost:3000"
         - "http://localhost"
       methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
-      headers: [Authorization, Content-Type, X-Request-Id, X-Tenant-Id]
+      headers: [Authorization, Content-Type, X-Request-Id, X-Org-Id]
       credentials: true
       max_age: 3600
 

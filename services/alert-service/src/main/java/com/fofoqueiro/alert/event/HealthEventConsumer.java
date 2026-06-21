@@ -31,7 +31,8 @@ public class HealthEventConsumer {
             JsonNode node = objectMapper.readTree(message);
             String eventType = node.get("eventType").asText();
             UUID cameraId = UUID.fromString(node.get("cameraId").asText());
-            UUID tenantId = UUID.fromString(node.get("tenantId").asText());
+            JsonNode orgIdNode = node.has("orgId") ? node.get("orgId") : node.get("tenantId");
+            UUID orgId = UUID.fromString(orgIdNode.asText());
             String kafkaEventId = topic + "-" + offset;
 
             AlertType alertType;
@@ -55,7 +56,7 @@ public class HealthEventConsumer {
                 }
             }
 
-            alertService.create(cameraId, tenantId, alertType, alertMessage, severity, kafkaEventId);
+            alertService.create(cameraId, orgId, alertType, alertMessage, severity, kafkaEventId);
         } catch (Exception e) {
             log.error("Error processing health event: {}", e.getMessage(), e);
         }

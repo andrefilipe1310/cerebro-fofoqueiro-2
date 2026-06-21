@@ -31,10 +31,9 @@ public class AuditLogService {
         }
         try {
             JsonNode node = objectMapper.readTree(rawPayload);
-            UUID tenantId = node.has("tenantId") ?
-                    UUID.fromString(node.get("tenantId").asText()) : null;
-            UUID userId = node.has("userId") ?
-                    UUID.fromString(node.get("userId").asText()) : null;
+            // Suporta tanto o campo orgId (novo) quanto tenantId (legado)
+            UUID orgId = extractUuid(node, "orgId", "tenantId");
+            UUID userId = extractUuid(node, "userId", null);
 
             String action = node.has("eventType") ? node.get("eventType").asText() : topic;
             String resourceType = topic.replace(".events", "").toUpperCase();
@@ -43,7 +42,7 @@ public class AuditLogService {
 
             AuditLog log = AuditLog.builder()
                     .eventId(eventId)
-                    .tenantId(tenantId)
+                    .orgId(orgId)
                     .userId(userId)
                     .action(action)
                     .resourceType(resourceType)
@@ -59,15 +58,25 @@ public class AuditLogService {
     }
 
     @Transactional(readOnly = true)
-    public Page<AuditLogResponse> findByTenant(UUID tenantId, String action, UUID userId, Pageable pageable) {
+    public Page<AuditLogResponse> findByOrg(UUID orgId, String action, UUID userId, Pageable pageable) {
         if (action != null) {
-            return auditLogRepository.findByTenantIdAndAction(tenantId, action, pageable)
+            return auditLogRepository.findByOrgIdAndAction(orgId, action, pageable)
                     .map(AuditLogResponse::from);
         }
         if (userId != null) {
-            return auditLogRepository.findByTenantIdAndUserId(tenantId, userId, pageable)
+            return auditLogRepository.findByOrgIdAndUserId(orgId, userId, pageable)
                     .map(AuditLogResponse::from);
         }
-        return auditLogRepository.findByTenantId(tenantId, pageable).map(AuditLogResponse::from);
+        return auditLogRepository.findByOrgId(orgId, pageable).map(AuditLogResponse::from);
+    }
+
+    private UUID extractUuid(JsonNode node, String primaryKey, String fallbackKey) {
+        if (node.has(primaryKey) && !node.get(primaryKey).isNull()) {
+            return UUID.fromString(node.get(primaryKey).asText());
+        }
+        if (fallbackKey != null && node.has(fallbackKey) && !node.get(fallbackKey).isNull()) {
+            return UUID.fromString(node.get(fallbackKey).asText());
+        }
+        return null;
     }
 }

@@ -12,11 +12,11 @@ import java.util.UUID;
 @Repository
 public interface LocationRepository extends JpaRepository<Location, UUID> {
 
-    @Query(value = "SELECT * FROM cameras.locations WHERE tenant_id = :tenantId ORDER BY name",
+    @Query(value = "SELECT * FROM cameras.locations WHERE org_id = :orgId ORDER BY name",
            nativeQuery = true)
-    List<Location> findByTenantId(UUID tenantId);
+    List<Location> findByOrgId(UUID orgId);
 
-    @Query(value = "SELECT * FROM cameras.locations WHERE tenant_id = :tenantId AND id = :id LIMIT 1",
+    @Query(value = "SELECT * FROM cameras.locations WHERE org_id = :orgId AND id = :id LIMIT 1",
            nativeQuery = true)
-    Optional<Location> findByTenantIdAndId(UUID tenantId, UUID id);
+    Optional<Location> findByOrgIdAndId(UUID orgId, UUID id);
 }

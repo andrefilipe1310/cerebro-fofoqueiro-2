@@ -16,8 +16,8 @@ public class CameraHealthState {
     @Column(name = "camera_id")
     private UUID cameraId;
 
-    @Column(name = "tenant_id", nullable = false)
-    private UUID tenantId;
+    @Column(name = "org_id", nullable = false)
+    private UUID orgId;
 
     @Column(name = "last_seen_at")
     private OffsetDateTime lastSeenAt;

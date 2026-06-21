@@ -2,7 +2,7 @@ package com.fofoqueiro.alert.controller;
 
 import com.fofoqueiro.alert.domain.enums.AlertStatus;
 import com.fofoqueiro.alert.dto.response.AlertResponse;
-import com.fofoqueiro.alert.security.TenantContext;
+import com.fofoqueiro.alert.security.OrgContext;
 import com.fofoqueiro.alert.service.AlertService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -25,7 +25,7 @@ public class AlertController {
     public ResponseEntity<Page<AlertResponse>> list(
             @RequestParam(required = false) AlertStatus status,
             Pageable pageable) {
-        return ResponseEntity.ok(alertService.findByTenant(TenantContext.get(), status, pageable));
+        return ResponseEntity.ok(alertService.findByOrg(OrgContext.get(), status, pageable));
     }
 
     @PatchMapping("/{id}/acknowledge")
@@ -34,6 +34,6 @@ public class AlertController {
             @PathVariable UUID id,
             @AuthenticationPrincipal String userId) {
         UUID uid = UUID.fromString(userId);
-        return ResponseEntity.ok(alertService.acknowledge(id, uid, TenantContext.get()));
+        return ResponseEntity.ok(alertService.acknowledge(id, uid, OrgContext.get()));
     }
 }

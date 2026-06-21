@@ -2,7 +2,7 @@ package com.fofoqueiro.chms.controller;
 
 import com.fofoqueiro.chms.dto.response.CameraHealthResponse;
 import com.fofoqueiro.chms.repository.CameraHealthStateRepository;
-import com.fofoqueiro.chms.security.TenantContext;
+import com.fofoqueiro.chms.security.OrgContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,9 +19,9 @@ public class HealthController {
 
     @GetMapping("/cameras")
     public ResponseEntity<List<CameraHealthResponse>> listAll() {
-        UUID tenantId = TenantContext.get();
+        UUID orgId = OrgContext.get();
         return ResponseEntity.ok(
-                healthStateRepository.findByTenantId(tenantId)
+                healthStateRepository.findByOrgId(orgId)
                         .stream().map(CameraHealthResponse::from).toList()
         );
     }

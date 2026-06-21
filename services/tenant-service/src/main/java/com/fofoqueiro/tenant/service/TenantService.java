@@ -31,7 +31,7 @@ public class TenantService {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
-    private static final String CACHE_KEY = "tenant:";
+    private static final String CACHE_KEY = "org:";
     private static final long CACHE_TTL_MINUTES = 5;
 
     @Transactional(readOnly = true)
@@ -55,7 +55,7 @@ public class TenantService {
 
     @Transactional(readOnly = true)
     public TenantResponse findByDomain(String domain) {
-        String key = "tenant:domain:" + domain;
+        String key = "org:domain:" + domain;
         String cached = redisTemplate.opsForValue().get(key);
         if (cached != null) {
             try {
@@ -75,7 +75,7 @@ public class TenantService {
 
     @Transactional(readOnly = true)
     public TenantResponse findBySlug(String slug) {
-        String key = "tenant:slug:" + slug;
+        String key = "org:slug:" + slug;
         String cached = redisTemplate.opsForValue().get(key);
         if (cached != null) {
             try {
@@ -147,9 +147,9 @@ public class TenantService {
 
     private void publishTenantEvent(Tenant tenant, String eventType) {
         try {
-            Map<String, Object> payload = Map.of("tenantId", tenant.getId().toString(), "slug", tenant.getSlug());
+            Map<String, Object> payload = Map.of("orgId", tenant.getId().toString(), "slug", tenant.getSlug());
             OutboxEvent event = OutboxEvent.builder()
-                    .topic("tenant.events")
+                    .topic("organization.events")
                     .eventType(eventType)
                     .payload(objectMapper.writeValueAsString(payload))
                     .attempts(0)

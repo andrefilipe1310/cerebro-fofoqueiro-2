@@ -2,7 +2,7 @@ package com.fofoqueiro.auth.controller;
 
 import com.fofoqueiro.auth.dto.request.CreateUserRequest;
 import com.fofoqueiro.auth.dto.response.UserResponse;
-import com.fofoqueiro.auth.security.TenantContext;
+import com.fofoqueiro.auth.security.OrgContext;
 import com.fofoqueiro.auth.service.UserManagementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,20 +24,20 @@ public class UserController {
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<UserResponse>> listUsers() {
-        return ResponseEntity.ok(userManagementService.listUsers(TenantContext.get()));
+        return ResponseEntity.ok(userManagementService.listUsers(OrgContext.get()));
     }
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(userManagementService.createUser(TenantContext.get(), req));
+                .body(userManagementService.createUser(OrgContext.get(), req));
     }
 
     @DeleteMapping("/{userId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> deactivateUser(@PathVariable UUID userId) {
-        userManagementService.deactivateUser(TenantContext.get(), userId);
+    public ResponseEntity<Void> removeMembership(@PathVariable UUID userId) {
+        userManagementService.removeMembership(OrgContext.get(), userId);
         return ResponseEntity.noContent().build();
     }
 }

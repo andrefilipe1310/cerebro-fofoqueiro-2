@@ -33,25 +33,25 @@ public class RecordingService {
     private final EntityManager em;
     private final ObjectMapper objectMapper;
 
-    private void setRls(UUID tenantId) {
-        if (tenantId != null) {
-            em.createNativeQuery("SELECT set_config('app.current_tenant_id', :tid, true)")
-              .setParameter("tid", tenantId.toString())
+    private void setRls(UUID orgId) {
+        if (orgId != null) {
+            em.createNativeQuery("SELECT set_config('app.current_org_id', :tid, true)")
+              .setParameter("tid", orgId.toString())
               .getSingleResult();
         }
     }
 
     @Transactional(readOnly = true)
-    public Page<RecordingResponse> findByTenant(UUID tenantId, Pageable pageable) {
-        setRls(tenantId);
-        return recordingRepository.findByTenantId(tenantId, pageable).map(RecordingResponse::from);
+    public Page<RecordingResponse> findByTenant(UUID orgId, Pageable pageable) {
+        setRls(orgId);
+        return recordingRepository.findByOrgId(orgId, pageable).map(RecordingResponse::from);
     }
 
     @Transactional(readOnly = true)
-    public TimelineResponse findTimeline(UUID cameraId, UUID tenantId,
+    public TimelineResponse findTimeline(UUID cameraId, UUID orgId,
                                          OffsetDateTime from, OffsetDateTime to) {
-        setRls(tenantId);
-        List<Recording> segments = recordingRepository.findTimeline(cameraId, tenantId, from, to);
+        setRls(orgId);
+        List<Recording> segments = recordingRepository.findTimeline(cameraId, orgId, from, to);
         List<TimelineResponse.GapResponse> gaps = new ArrayList<>();
 
         OffsetDateTime cursor = from;
@@ -73,10 +73,10 @@ public class RecordingService {
     }
 
     @Transactional(readOnly = true)
-    public DownloadUrlResponse findDownloadUrl(UUID recordingId, UUID tenantId) {
-        setRls(tenantId);
+    public DownloadUrlResponse findDownloadUrl(UUID recordingId, UUID orgId) {
+        setRls(orgId);
         Recording recording = recordingRepository.findById(recordingId)
-                .filter(r -> r.getTenantId().equals(tenantId))
+                .filter(r -> r.getOrgId().equals(orgId))
                 .orElseThrow(() -> new RuntimeException("Recording not found"));
         String url = r2StorageService.generatePresignedDownloadUrl(recording.getR2Key(), Duration.ofHours(1));
         return new DownloadUrlResponse(url, OffsetDateTime.now().plusHours(1));
@@ -86,10 +86,11 @@ public class RecordingService {
     public void registerRecording(String eventPayload) {
         try {
             JsonNode node = objectMapper.readTree(eventPayload);
-            UUID tenantId = UUID.fromString(node.get("tenantId").asText());
-            setRls(tenantId);
+            JsonNode orgIdNode = node.has("orgId") ? node.get("orgId") : node.get("tenantId");
+            UUID orgId = UUID.fromString(orgIdNode.asText());
+            setRls(orgId);
             Recording recording = Recording.builder()
-                    .tenantId(tenantId)
+                    .orgId(orgId)
                     .cameraId(UUID.fromString(node.get("cameraId").asText()))
                     .r2Key(node.get("r2Key").asText())
                     .startedAt(OffsetDateTime.parse(node.get("startedAt").asText()))
@@ -108,25 +109,25 @@ public class RecordingService {
     @Scheduled(cron = "0 0 2 * * *")
     public void cleanupExpiredRecordings() {
         recordingRepository.findAll().stream()
-                .map(r -> r.getTenantId())
+                .map(r -> r.getOrgId())
                 .distinct()
-                .forEach(tenantId -> {
-                    setRls(tenantId);
+                .forEach(orgId -> {
+                    setRls(orgId);
                     OffsetDateTime cutoff = OffsetDateTime.now().minusDays(30);
-                    List<Recording> expired = recordingRepository.findExpiredRecordings(tenantId, cutoff);
+                    List<Recording> expired = recordingRepository.findExpiredRecordings(orgId, cutoff);
                     for (Recording r : expired) {
                         r2StorageService.deleteObject(r.getR2Key());
                         recordingRepository.delete(r);
                     }
-                    log.info("Cleaned up {} expired recordings for tenant {}", expired.size(), tenantId);
+                    log.info("Cleaned up {} expired recordings for org {}", expired.size(), orgId);
                 });
     }
 
     @Transactional
-    public void delete(UUID recordingId, UUID tenantId) {
-        setRls(tenantId);
+    public void delete(UUID recordingId, UUID orgId) {
+        setRls(orgId);
         Recording recording = recordingRepository.findById(recordingId)
-                .filter(r -> r.getTenantId().equals(tenantId))
+                .filter(r -> r.getOrgId().equals(orgId))
                 .orElseThrow(() -> new RuntimeException("Recording not found"));
         r2StorageService.deleteObject(recording.getR2Key());
         recordingRepository.delete(recording);

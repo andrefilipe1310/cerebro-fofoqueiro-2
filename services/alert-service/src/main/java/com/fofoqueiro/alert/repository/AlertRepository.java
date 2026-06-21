@@ -14,15 +14,15 @@ import java.util.UUID;
 @Repository
 public interface AlertRepository extends JpaRepository<Alert, UUID> {
 
-    @Query(value = "SELECT * FROM alerts.alerts WHERE tenant_id = :tenantId ORDER BY triggered_at DESC",
-           countQuery = "SELECT count(*) FROM alerts.alerts WHERE tenant_id = :tenantId",
+    @Query(value = "SELECT * FROM alerts.alerts WHERE org_id = :orgId ORDER BY triggered_at DESC",
+           countQuery = "SELECT count(*) FROM alerts.alerts WHERE org_id = :orgId",
            nativeQuery = true)
-    Page<Alert> findByTenantId(UUID tenantId, Pageable pageable);
+    Page<Alert> findByOrgId(UUID orgId, Pageable pageable);
 
-    @Query(value = "SELECT * FROM alerts.alerts WHERE tenant_id = :tenantId AND status = :#{#status.name()} ORDER BY triggered_at DESC",
-           countQuery = "SELECT count(*) FROM alerts.alerts WHERE tenant_id = :tenantId AND status = :#{#status.name()}",
+    @Query(value = "SELECT * FROM alerts.alerts WHERE org_id = :orgId AND status = :#{#status.name()} ORDER BY triggered_at DESC",
+           countQuery = "SELECT count(*) FROM alerts.alerts WHERE org_id = :orgId AND status = :#{#status.name()}",
            nativeQuery = true)
-    Page<Alert> findByTenantIdAndStatus(UUID tenantId, AlertStatus status, Pageable pageable);
+    Page<Alert> findByOrgIdAndStatus(UUID orgId, AlertStatus status, Pageable pageable);
 
     Optional<Alert> findByKafkaEventId(String kafkaEventId);
 }

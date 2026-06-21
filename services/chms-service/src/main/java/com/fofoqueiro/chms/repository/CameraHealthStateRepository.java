@@ -11,7 +11,7 @@ import java.util.UUID;
 @Repository
 public interface CameraHealthStateRepository extends JpaRepository<CameraHealthState, UUID> {
 
-    @Query(value = "SELECT * FROM health.camera_health_state WHERE tenant_id = :tenantId",
+    @Query(value = "SELECT * FROM health.camera_health_state WHERE org_id = :orgId",
            nativeQuery = true)
-    List<CameraHealthState> findByTenantId(UUID tenantId);
+    List<CameraHealthState> findByOrgId(UUID orgId);
 }

@@ -7,20 +7,16 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, UUID> {
 
-    @Query(value = "SELECT * FROM auth.users WHERE tenant_id = :tenantId ORDER BY email",
+    // auth_service_user é dona da tabela — RLS não se aplica, findByEmail funciona globalmente
+    @Query(value = "SELECT * FROM auth.users WHERE email = :email AND active = TRUE LIMIT 1",
            nativeQuery = true)
-    List<User> findByTenantId(UUID tenantId);
-
-    @Query(value = "SELECT * FROM auth.users WHERE tenant_id = :tenantId AND email = :email LIMIT 1",
-           nativeQuery = true)
-    Optional<User> findByTenantIdAndEmail(UUID tenantId, String email);
+    Optional<User> findByEmail(String email);
 
     @Modifying
     @Query(value = "UPDATE auth.users SET last_login = :now, failed_attempts = 0, locked_until = NULL WHERE id = :id",
