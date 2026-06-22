@@ -18,18 +18,18 @@ public record DomainEvent(
         @JsonProperty("version")       String version,
         @JsonProperty("occurred_at")   Instant occurredAt,
         @JsonProperty("producer")      String producer,
-        @JsonProperty("tenant_id")     UUID tenantId,
+        @JsonProperty("org_id")        UUID orgId,
         @JsonProperty("correlation_id") String correlationId,
         @JsonProperty("payload")       Map<String, Object> payload
 ) {
-    public static DomainEvent of(String eventType, UUID tenantId, Map<String, Object> payload) {
+    public static DomainEvent of(String eventType, UUID orgId, Map<String, Object> payload) {
         return DomainEvent.builder()
                 .eventId(UUID.randomUUID().toString())
                 .eventType(eventType)
                 .version("1.0")
                 .occurredAt(Instant.now())
                 .producer("camera-service")
-                .tenantId(tenantId)
+                .orgId(orgId)
                 .payload(payload)
                 .build();
     }

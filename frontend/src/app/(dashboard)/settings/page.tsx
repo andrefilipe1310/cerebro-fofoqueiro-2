@@ -6,25 +6,25 @@ import { Plus, X, QrCode, Shield } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/stores/auth.store';
 
-interface TenantSettings { name: string; domain: string; logo_url: string | null; css_override: string | null; }
+interface OrgSettings { name: string; domain: string; logo_url: string | null; css_override: string | null; }
 interface UserRecord { id: string; email: string; role: string; active: boolean; }
 
-type Tab = 'tenant' | 'users' | 'security';
+type Tab = 'org' | 'users' | 'security';
 
 interface NewUserForm { email: string; password: string; role: string; }
 
 interface TotpSetupData { secret: string; qr_code_url: string; }
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState<Tab>('tenant');
+  const [tab, setTab] = useState<Tab>('org');
   const [showNewUserModal, setShowNewUserModal] = useState(false);
   const [newUserForm, setNewUserForm] = useState<NewUserForm>({ email: '', password: '', role: 'OPERATOR' });
   const [totpSetup, setTotpSetup] = useState<TotpSetupData | null>(null);
   const qc = useQueryClient();
   const user = useAuthStore((s) => s.user);
 
-  const { data: tenant } = useQuery<TenantSettings>({
-    queryKey: ['tenant-settings'],
+  const { data: org } = useQuery<OrgSettings>({
+    queryKey: ['org-settings'],
     queryFn: () => apiClient.get('/organizations/me').then(r => r.data),
   });
 
@@ -34,9 +34,9 @@ export default function SettingsPage() {
     enabled: tab === 'users',
   });
 
-  const updateTenant = useMutation({
-    mutationFn: (payload: Partial<TenantSettings>) => apiClient.put('/organizations/me', payload).then(r => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tenant-settings'] }),
+  const updateOrg = useMutation({
+    mutationFn: (payload: Partial<OrgSettings>) => apiClient.put('/organizations/me', payload).then(r => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['org-settings'] }),
   });
 
   const createUser = useMutation({
@@ -48,11 +48,11 @@ export default function SettingsPage() {
     },
   });
 
-  const [tenantForm, setTenantForm] = useState({ name: '', logo_url: '', css_override: '' });
+  const [orgForm, setOrgForm] = useState({ name: '', logo_url: '', css_override: '' });
 
-  const handleTenantSubmit = (e: React.FormEvent) => {
+  const handleOrgSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    updateTenant.mutate({ name: tenantForm.name || undefined, logo_url: tenantForm.logo_url || null, css_override: tenantForm.css_override || null });
+    updateOrg.mutate({ name: orgForm.name || undefined, logo_url: orgForm.logo_url || null, css_override: orgForm.css_override || null });
   };
 
   const handleSetup2FA = async () => {
@@ -71,31 +71,31 @@ export default function SettingsPage() {
       <h1 className="text-2xl font-semibold mb-6">Configurações</h1>
 
       <div className="flex gap-1 border rounded-md p-1 mb-6 w-fit">
-        {(['tenant', 'users', 'security'] as Tab[]).map((t) => (
+        {(['org', 'users', 'security'] as Tab[]).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-4 py-1.5 rounded text-sm font-medium capitalize transition-colors ${tab === t ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}>
-            {t === 'tenant' ? 'Organização' : t === 'users' ? 'Usuários' : 'Segurança'}
+            {t === 'org' ? 'Organização' : t === 'users' ? 'Usuários' : 'Segurança'}
           </button>
         ))}
       </div>
 
-      {tab === 'tenant' && (
+      {tab === 'org' && (
         <div className="max-w-lg">
-          <form onSubmit={handleTenantSubmit} className="space-y-4">
+          <form onSubmit={handleOrgSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1">Nome da Organização</label>
               <input
-                value={tenantForm.name || tenant?.name || ''}
-                onChange={e => setTenantForm(f => ({ ...f, name: e.target.value }))}
-                placeholder={tenant?.name ?? ''}
+                value={orgForm.name || org?.name || ''}
+                onChange={e => setOrgForm(f => ({ ...f, name: e.target.value }))}
+                placeholder={org?.name ?? ''}
                 className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">URL do Logo</label>
               <input
-                value={tenantForm.logo_url || tenant?.logo_url || ''}
-                onChange={e => setTenantForm(f => ({ ...f, logo_url: e.target.value }))}
+                value={orgForm.logo_url || org?.logo_url || ''}
+                onChange={e => setOrgForm(f => ({ ...f, logo_url: e.target.value }))}
                 placeholder="https://exemplo.com/logo.png"
                 className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
@@ -103,17 +103,17 @@ export default function SettingsPage() {
             <div>
               <label className="block text-sm font-medium mb-1">CSS Personalizado</label>
               <textarea
-                value={tenantForm.css_override || tenant?.css_override || ''}
-                onChange={e => setTenantForm(f => ({ ...f, css_override: e.target.value }))}
+                value={orgForm.css_override || org?.css_override || ''}
+                onChange={e => setOrgForm(f => ({ ...f, css_override: e.target.value }))}
                 placeholder=":root { --primary: 220 100% 50%; }"
                 rows={4}
                 className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono"
               />
             </div>
             {isAdmin && (
-              <button type="submit" disabled={updateTenant.isPending}
+              <button type="submit" disabled={updateOrg.isPending}
                 className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50">
-                {updateTenant.isPending ? 'Salvando...' : 'Salvar Alterações'}
+                {updateOrg.isPending ? 'Salvando...' : 'Salvar Alterações'}
               </button>
             )}
           </form>

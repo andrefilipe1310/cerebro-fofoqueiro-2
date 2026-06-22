@@ -25,7 +25,9 @@
       "Bash(docker run *)",
       "Bash(xargs -I{} grep \"ENTRYPOINT\" {})",
       "Bash(docker stop *)",
-      "Bash(docker rm *)"
+      "Bash(docker rm *)",
+      "Bash(grep -v \"//.*tenant\\\\|TenantContext\\\\|TenantPlan\\\\|TenantStatus\\\\|TenantService\\\\|TenantRepository\\\\|TenantResponse\\\\|TenantController\\\\|CreateTenantRequest\\\\|UpdateTenantRequest\\\\|Tenant\\\\.java\\\\|Tenant tenant\\\\|class Tenant\\\\|entity Tenant\\\\|TenantServiceApplication\\\\|com\\\\.fofoqueiro\\\\.tenant\\\\|tenant-service\\\\|fofoqueiro-tenant\")",
+      "Bash(grep -v \"//\\\\|TenantContext\\\\|TenantPlan\\\\|TenantStatus\\\\|TenantService\\\\|TenantRepository\\\\|TenantResponse\\\\|TenantController\\\\|CreateTenantRequest\\\\|UpdateTenantRequest\\\\|class Tenant\\\\|entity Tenant\\\\|TenantServiceApplication\\\\|com\\\\.fofoqueiro\\\\.tenant\\\\|fofoqueiro-tenant\\\\|tenantId\\\\\"\\\\\\)\")"
     ]
   }
 }

@@ -16,7 +16,7 @@ public class OpenApiConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("Audit Service API")
-                        .description("Logs de auditoria imutáveis por tenant — rastreabilidade de todas as ações.")
+                        .description("Logs de auditoria imutáveis por organização — rastreabilidade de todas as ações.")
                         .version("0.1.0"))
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .components(new Components()

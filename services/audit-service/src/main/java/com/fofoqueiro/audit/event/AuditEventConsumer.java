@@ -17,7 +17,7 @@ public class AuditEventConsumer {
     private final AuditLogService auditLogService;
 
     @KafkaListener(
-        topics = {"auth.events", "camera.events", "health.events", "alert.events", "tenant.events"},
+        topics = {"auth.events", "camera.events", "health.events", "alert.events", "org.events"},
         groupId = "audit-service"
     )
     public void consume(

@@ -1,6 +1,6 @@
 // @path services/tenant-service/src/main/java/com/fofoqueiro/tenant/TenantServiceApplication.java
 // @owner tenant-service
-// @responsibility Entry point do Tenant Service — CRUD tenants/usuários, white-label, limites de plano
+// @responsibility Entry point do Organization Service — CRUD organizations/usuários, white-label, limites de plano
 // @see docs/ARCHITECTURE.md#tenant-service
 package com.fofoqueiro.tenant;
 

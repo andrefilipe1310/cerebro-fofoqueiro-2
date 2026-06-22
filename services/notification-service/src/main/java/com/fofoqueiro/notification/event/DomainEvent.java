@@ -18,7 +18,7 @@ public record DomainEvent(
         @JsonProperty("version")       String version,
         @JsonProperty("occurred_at")   Instant occurredAt,
         @JsonProperty("producer")      String producer,
-        @JsonProperty("tenant_id")     UUID tenantId,
+        @JsonProperty("org_id")        UUID orgId,
         @JsonProperty("correlation_id") String correlationId,
         @JsonProperty("payload")       Map<String, Object> payload
 ) {}

@@ -29,19 +29,19 @@ export function useAcknowledgeAlert() {
 
 // Hook para receber alertas em tempo real via WebSocket STOMP
 // @see docs/API_CONTRACTS.md#ws-alerts
-export function useAlertWebSocket(tenantId: string, onAlert: (alert: unknown) => void) {
+export function useAlertWebSocket(orgId: string, onAlert: (alert: unknown) => void) {
   const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:8000/ws';
   const clientRef = useRef<Client | null>(null);
 
   useEffect(() => {
-    if (!tenantId) return;
+    if (!orgId) return;
 
     const token = sessionStorage.getItem('access_token');
     const client = new Client({
       brokerURL: `${wsUrl}/alerts?token=${token}`,
       reconnectDelay: 5000,
       onConnect: () => {
-        client.subscribe(`/topic/tenant/${tenantId}/alerts`, (message) => {
+        client.subscribe(`/topic/org/${orgId}/alerts`, (message) => {
           onAlert(JSON.parse(message.body));
         });
       },
@@ -53,5 +53,5 @@ export function useAlertWebSocket(tenantId: string, onAlert: (alert: unknown) =>
     return () => {
       client.deactivate();
     };
-  }, [tenantId, onAlert, wsUrl]);
+  }, [orgId, onAlert, wsUrl]);
 }

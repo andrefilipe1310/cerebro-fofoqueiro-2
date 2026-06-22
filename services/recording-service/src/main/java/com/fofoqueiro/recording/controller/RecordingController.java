@@ -25,7 +25,7 @@ public class RecordingController {
 
     @GetMapping
     public ResponseEntity<Page<RecordingResponse>> list(Pageable pageable) {
-        return ResponseEntity.ok(recordingService.findByTenant(OrgContext.get(), pageable));
+        return ResponseEntity.ok(recordingService.findByOrg(OrgContext.get(), pageable));
     }
 
     @GetMapping("/timeline")

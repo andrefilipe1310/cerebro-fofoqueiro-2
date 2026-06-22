@@ -15,8 +15,8 @@ public class OpenApiConfig {
     public OpenAPI openAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("Tenant Service API")
-                        .description("Gestão de tenants, white-label e configurações de organização.")
+                        .title("Organization Service API")
+                        .description("Gestão de organizações, white-label e configurações de organização.")
                         .version("0.1.0"))
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .components(new Components()

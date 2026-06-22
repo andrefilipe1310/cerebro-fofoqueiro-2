@@ -27,7 +27,7 @@ public class MediaAuthController {
                 return ResponseEntity.status(403).build();
             }
 
-            // Path format: tenant_{tenantId}/camera_{cameraId}/main
+            // Path format: org_{orgId}/camera_{cameraId}/main
             String[] parts = path.split("/");
             if (parts.length < 2) return ResponseEntity.status(403).build();
 

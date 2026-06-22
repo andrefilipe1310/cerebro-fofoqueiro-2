@@ -22,10 +22,10 @@ public class EmailService {
         this.fromName = fromName;
     }
 
-    public void sendCameraOffline(String to, String cameraName, String tenantName) {
-        String subject = "[" + tenantName + "] Camera Offline: " + cameraName;
+    public void sendCameraOffline(String to, String cameraName, String orgName) {
+        String subject = "[" + orgName + "] Camera Offline: " + cameraName;
         String body = "<h2>Camera Offline Alert</h2>" +
-                "<p>Camera <strong>" + cameraName + "</strong> in tenant <strong>" + tenantName +
+                "<p>Camera <strong>" + cameraName + "</strong> in org <strong>" + orgName +
                 "</strong> is currently offline.</p>" +
                 "<p>Please check the connection and verify the camera is powered on.</p>";
         sendHtml(to, subject, body);

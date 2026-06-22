@@ -41,12 +41,12 @@ public class TenantService {
             try {
                 return objectMapper.readValue(cached, TenantResponse.class);
             } catch (Exception e) {
-                log.warn("Cache deserialize error for tenant {}", tenantId);
+                log.warn("Cache deserialize error for org {}", tenantId);
             }
         }
 
         Tenant tenant = tenantRepository.findById(tenantId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Tenant não encontrado"));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Organização não encontrada"));
 
         TenantResponse response = TenantResponse.from(tenant);
         cacheResponse(CACHE_KEY + tenantId, response);
@@ -66,7 +66,7 @@ public class TenantService {
         }
 
         Tenant tenant = tenantRepository.findByDomain(domain)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Tenant não encontrado para domínio: " + domain));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Organização não encontrada para domínio: " + domain));
 
         TenantResponse response = TenantResponse.from(tenant);
         cacheResponse(key, response);
@@ -86,7 +86,7 @@ public class TenantService {
         }
 
         Tenant tenant = tenantRepository.findBySlug(slug)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Tenant não encontrado para slug: " + slug));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Organização não encontrada para slug: " + slug));
 
         TenantResponse response = TenantResponse.from(tenant);
         cacheResponse(key, response);
@@ -96,7 +96,7 @@ public class TenantService {
     @Transactional
     public TenantResponse update(UUID tenantId, UpdateTenantRequest req) {
         Tenant tenant = tenantRepository.findById(tenantId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Tenant não encontrado"));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Organização não encontrada"));
 
         if (req.name() != null) tenant.setName(req.name());
         if (req.domain() != null) tenant.setDomain(req.domain());
@@ -141,7 +141,7 @@ public class TenantService {
             redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(response),
                     CACHE_TTL_MINUTES, TimeUnit.MINUTES);
         } catch (Exception e) {
-            log.warn("Failed to cache tenant response: {}", e.getMessage());
+            log.warn("Failed to cache org response: {}", e.getMessage());
         }
     }
 
@@ -156,7 +156,7 @@ public class TenantService {
                     .build();
             outboxEventRepository.save(event);
         } catch (Exception e) {
-            log.warn("Falha ao publicar evento tenant: {}", e.getMessage());
+            log.warn("Falha ao publicar evento org: {}", e.getMessage());
         }
     }
 

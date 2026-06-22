@@ -119,19 +119,21 @@ Cada serviço tem **responsabilidade única**, **banco de dados próprio** (sche
 
 ---
 
-### 2.3 Tenant Service {#tenant-service}
+### 2.3 Organization Service {#organization-service}
 
-**Stack:** Spring Boot 3 / Java 21 | **Banco:** PostgreSQL schema `tenants`
+> **Renomeado de Organization Service → Organization Service (v0.2.0).** Schema PostgreSQL: `organizations`.
+
+**Stack:** Spring Boot 3 / Java 21 | **Banco:** PostgreSQL schema `organizations`
 
 | Responsabilidade | Detalhe |
 |---|---|
-| CRUD de tenants e usuários | Criação, suspensão, alteração de plano |
+| CRUD de organizations | Criação, suspensão, alteração de plano |
 | Enforcement de limites de plano | Câmeras máx., usuários máx., retenção |
 | White-label config | Logo, CSS override, domínio customizado |
-| Cache de configuração | Config do tenant em Redis com TTL de 5min — consultado por outros serviços |
-| Eventos publicados | `tenant.created`, `tenant.plan_changed`, `tenant.suspended` → Kafka |
+| Cache de configuração | Config da org em Redis com TTL de 5min — consultado por outros serviços |
+| Eventos publicados | `org.created`, `org.plan_changed`, `org.suspended` → Kafka topic `organization.events` |
 
-> **ADR-004 (Performance):** A configuração de cada tenant (plano, limites, CSS) é cacheada no Redis. O Camera Service e Alert Service consultam o Redis — nunca o banco do Tenant Service diretamente. Isso elimina dependência síncrona entre serviços em tempo de request.
+> **ADR-004 (Performance):** A configuração de cada org (plano, limites, CSS) é cacheada no Redis. O Camera Service e Alert Service consultam o Redis — nunca o banco do Organization Service diretamente. Isso elimina dependência síncrona entre serviços em tempo de request.
 
 ---
 
@@ -243,8 +245,8 @@ Usado para queries que precisam de resposta imediata no fluxo de request do usu�
 
 | Chamada | Origem | Destino | Protocolo |
 |---|---|---|---|
-| Buscar config do tenant | Camera Service | Redis cache (preenchido pelo Tenant Service) | Redis GET |
-| Validar limite de câmeras | Camera Service | Redis cache do Tenant Service | Redis GET |
+| Buscar config do tenant | Camera Service | Redis cache (preenchido pelo Organization Service) | Redis GET |
+| Validar limite de câmeras | Camera Service | Redis cache do Organization Service | Redis GET |
 | Gerar stream URL | Camera Service | MediaMTX Admin API | REST HTTP |
 | Auth webhook de stream | MediaMTX | Camera Service (`/internal/media/auth`) | REST HTTP + mTLS |
 | Buscar status de câmera | Alert Service | Redis (preenchido pelo CHMS) | Redis GET |
@@ -261,7 +263,7 @@ camera.events           │ Camera Service   │ CHMS Service, Audit Service
 health.events           │ CHMS Service     │ Alert Service, Recording Service
 alert.events            │ Alert Service    │ Notification Service, Audit Service
 recording.events        │ Recording Svc    │ Audit Service
-tenant.events           │ Tenant Service   │ CHMS Service, Audit Service
+organization.events           │ Organization Service   │ CHMS Service, Audit Service
 ```
 
 > **ADR-011 (Resiliência):** Kafka garante entrega at-least-once. Serviços consumidores devem ser **idempotentes** — processar o mesmo evento duas vezes não deve causar efeito duplicado. Exemplo: Audit Service usa `event_id` como chave única para evitar log duplicado.
@@ -275,7 +277,7 @@ tenant.events           │ Tenant Service   │ CHMS Service, Audit Service
 ```
 PostgreSQL 16 (instância única no MVP, cluster no prod)
 ├── schema: auth          → Auth Service
-├── schema: tenants       → Tenant Service
+├── schema: organizations → Organization Service
 ├── schema: cameras       → Camera Service
 ├── schema: health        → CHMS Service
 ├── schema: recordings    → Recording Service
@@ -563,7 +565,7 @@ Retention Cleanup Job (CronJob Kubernetes, diário às 2h UTC)
 | ADR-001 | JWT validado APENAS no API Gateway | Validação em cada serviço | Evita drift de lógica; centraliza revogação |
 | ADR-002 | Rate limit no gateway com Redis | Rate limit por serviço | O(1) por request; sem query ao banco |
 | ADR-003 | Refresh token como hash SHA-256 no Redis | Token em texto claro | Comprometimento do Redis não expõe tokens reais |
-| ADR-004 | Config de tenant cacheada no Redis | Query síncrona ao Tenant Service | Elimina dependência síncrona entre serviços no request path |
+| ADR-004 | Config de tenant cacheada no Redis | Query síncrona ao Organization Service | Elimina dependência síncrona entre serviços no request path |
 | ADR-005 | Secrets em AWS Secrets Manager / Vault | Variáveis de ambiente | Rotação automática, auditoria de acesso, sem secrets em YAML do K8s |
 | ADR-006 | CHMS mantém mapa em memória | Query ao banco a cada 30s | Reduz writes no PostgreSQL de N câmeras/30s para apenas mudanças de estado |
 | ADR-007 | Timeline em read replica | Primary para tudo | Queries de 7 dias de gravação não afetam writes críticos |

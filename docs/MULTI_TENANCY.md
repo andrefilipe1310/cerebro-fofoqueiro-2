@@ -1,6 +1,6 @@
 <!-- Meta
-Versão: v0.1.0
-Última atualização: 2026-06-04
+Versão: v0.2.0
+Última atualização: 2026-06-21
 Documentos relacionados:
   - [Data Model](./DATA_MODEL.md)
   - [Security LGPD](./SECURITY_LGPD.md)
@@ -9,7 +9,11 @@ Documentos relacionados:
   - [Media Pipeline](./MEDIA_PIPELINE.md)
 -->
 
-# Multi-Tenancy {#multi-tenancy}
+# Multi-Tenancy — Organizações {#multi-tenancy}
+
+> **Mudança de nomenclatura (v0.2.0):** O conceito de "tenant" foi renomeado para **"organization"** (org) em todo o sistema. A tabela `tenants` virou `organizations`, o serviço `tenant-service` virou `organization-service`, e o campo `tenant_id` virou `org_id`. O JWT agora carrega `orgId` em vez de `tenantId`.
+
+---
 
 ## 1. Estratégia de Isolamento {#estrategia}
 
@@ -17,283 +21,284 @@ A plataforma adota o modelo **Single Database, Shared Schema** com isolamento po
 
 | Estratégia | Isolamento | Complexidade de migração | Custo operacional | Decisão |
 |---|---|---|---|---|
-| Database por tenant | Alto | Alta (N migrations) | Alto (N conexões) | ❌ Descartado |
-| Schema por tenant | Médio | Alta (DDL por schema) | Médio (pool limitado) | ❌ Descartado |
+| Database por org | Alto | Alta (N migrations) | Alto (N conexões) | ❌ Descartado |
+| Schema por org | Médio | Alta (DDL por schema) | Médio (pool limitado) | ❌ Descartado |
 | **RLS (shared schema)** | **Alto** | **Baixa (1 migration)** | **Baixo** | **✅ Adotado** |
 
-> **ADR:** RLS foi escolhido porque: (1) uma única migration atualiza todos os tenants, (2) PgBouncer funciona normalmente em transaction pooling mode, (3) PostgreSQL garante o isolamento em nível de banco — bugs no código de aplicação não conseguem vazar dados entre tenants mesmo sem filtro `WHERE` explícito.
+> **ADR:** RLS foi escolhido porque: (1) uma única migration atualiza todas as orgs, (2) PgBouncer funciona normalmente em transaction pooling mode, (3) PostgreSQL garante isolamento em nível de banco — bugs no código de aplicação não conseguem vazar dados entre orgs.
 
 ---
 
-## 2. Como o tenant_id é Injetado {#injecao-tenant}
+## 2. Modelo de Usuário — Muitos-para-Muitos (N:M) {#modelo-nm}
 
-### 2.1 Fluxo de Autenticação → RLS
+### 2.1 Motivação
+
+Na versão anterior, cada usuário pertencia a **exatamente uma** organização (`tenant_id` direto em `auth.users`). Isso impedia casos como:
+
+- CEO que gerencia várias empresas
+- Consultor externo auditando múltiplos clientes
+- Usuário admin do sistema com acesso a várias orgs
+
+### 2.2 Modelo Atual — N:M via `user_memberships`
 
 ```
-Request HTTP chega com: Authorization: Bearer <JWT>
-        │
-        ▼
-JwtAuthenticationFilter (Spring Security)
-        │ valida JWT, extrai claims
-        ▼
-TenantContext.setCurrentTenantId(jwt.getClaim("tenant_id"))
-        │ armazena em ThreadLocal
-        ▼
-HibernateTenantConnectionProvider (antes de cada query)
-        │ executa: SET LOCAL app.current_tenant_id = '<uuid>'
-        ▼
-PostgreSQL RLS Policy avalia: tenant_id = current_setting('app.current_tenant_id')
-        │
-        ▼
-Query retorna apenas dados do tenant correto
+auth.users              auth.user_memberships        organizations.organizations
+──────────────          ─────────────────────        ───────────────────────────
+id (PK)        ◄──────  user_id (FK)                 id (PK)
+email (UK)              org_id         ──────────►   slug
+password_hash           role                          name
+totp_enabled            active                        plan
+...                     created_at                    ...
+                        UNIQUE(user_id, org_id)
 ```
 
-### 2.2 Implementação Spring Boot
+**Benefícios:**
+- Um usuário pode pertencer a várias orgs com roles diferentes em cada uma
+- Remoção de membro = `active = false` na membership (não deleta o usuário)
+- Roles por org: ADMIN em "Empresa A", VIEWER em "Empresa B"
+
+### 2.3 Tabela `auth.user_memberships`
+
+```sql
+CREATE TABLE auth.user_memberships (
+    id         UUID     PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    UUID     NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    org_id     UUID     NOT NULL,
+    role       VARCHAR  NOT NULL CHECK (role IN ('ADMIN', 'OPERATOR', 'VIEWER')),
+    active     BOOLEAN  NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, org_id)
+);
+```
+
+---
+
+## 3. Fluxo de Autenticação {#fluxo-auth}
+
+### 3.1 Login com Org Picker (Novo Fluxo)
+
+```
+POST /api/v1/auth/login { email, password }
+        │
+        ▼
+Busca user por email (global — sem tenant_id)
+        │
+        ├── Valida senha + lockout
+        │
+        ├── Carrega user_memberships ativas
+        │
+        ├── Se 1 org  → emite JWT scoped diretamente
+        │                { access_token, org_id, role, ... }
+        │
+        └── Se N orgs → retorna lista para o picker
+                         { requires_org_selection: true,
+                           temp_token: "...",
+                           orgs: [{ id, name, slug, logo_url, role }] }
+
+[Usuário seleciona org no picker estilo Netflix]
+
+POST /api/v1/auth/select-org { temp_token, org_id }
+        │
+        ▼
+Valida temp_token + verifica membership ativa
+        │
+        ▼
+Emite JWT scoped: { access_token, org_id, role, ... }
+```
+
+### 3.2 JWT Claims
+
+```json
+{
+  "sub": "<user_id>",
+  "orgId": "<org_id>",
+  "role": "ADMIN",
+  "email": "usuario@empresa.com",
+  "iss": "fofoqueiro",
+  "exp": 1234567890
+}
+```
+
+> **Importante:** O claim agora é `orgId`, não mais `tenantId`. Tokens antigos com `tenantId` não são aceitos pelos serviços.
+
+### 3.3 Injeção de org_id → RLS
+
+```
+Request com JWT válido
+        │
+        ▼
+JwtAuthFilter
+  → extrai claim "orgId"
+  → OrgContext.set(UUID.fromString(orgId))
+        │
+        ▼
+Service método executa
+  → em qualquer query que precise de RLS:
+    SET LOCAL app.current_org_id = '<uuid>'
+        │
+        ▼
+PostgreSQL RLS Policy:
+  USING (org_id = current_setting('app.current_org_id', TRUE)::UUID)
+```
+
+### 3.4 Implementação Spring Boot
 
 ```java
-// TenantContext.java — ThreadLocal para armazenar o tenant da request atual
-public class TenantContext {
-    private static final ThreadLocal<UUID> currentTenantId = new ThreadLocal<>();
+// OrgContext.java — ThreadLocal para armazenar a org da request atual
+public final class OrgContext {
+    private static final ThreadLocal<UUID> CURRENT = new ThreadLocal<>();
 
-    public static void setCurrentTenantId(UUID tenantId) {
-        currentTenantId.set(tenantId);
-    }
-
-    public static UUID getCurrentTenantId() {
-        return currentTenantId.get();
-    }
-
-    public static void clear() {
-        currentTenantId.remove();
-    }
+    public static void set(UUID orgId) { CURRENT.set(orgId); }
+    public static UUID get() { return CURRENT.get(); }
+    public static void clear() { CURRENT.remove(); }
 }
 
-// JwtAuthenticationFilter.java — extrai tenant_id do JWT e configura contexto
-@Component
-public class JwtAuthenticationFilter extends OncePerRequestFilter {
-    @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain) throws Exception {
-        String token = extractToken(request);
-        if (token != null && jwtService.isValid(token)) {
-            UUID tenantId = jwtService.extractTenantId(token);
-            TenantContext.setCurrentTenantId(tenantId);
-            // configurar SecurityContext...
-        }
-        try {
-            filterChain.doFilter(request, response);
-        } finally {
-            TenantContext.clear(); // SEMPRE limpar após request
-        }
+// JwtAuthFilter.java — extrai orgId do JWT e configura contexto
+@Override
+protected void doFilterInternal(...) {
+    Claims claims = jwtService.validateAndExtractClaims(token);
+    String orgId = claims.get("orgId", String.class);
+    if (orgId != null) {
+        OrgContext.set(UUID.fromString(orgId));
     }
-}
-
-// TenantAwareJpaInterceptor.java — define variável de sessão PostgreSQL
-@Component
-public class TenantAwareJpaInterceptor implements EmptyInterceptor {
-    @Override
-    public void beforeTransactionCompletion(Transaction tx) {
-        UUID tenantId = TenantContext.getCurrentTenantId();
-        if (tenantId != null) {
-            // Executado antes de cada query dentro da transação
-            entityManager.createNativeQuery(
-                "SET LOCAL app.current_tenant_id = '" + tenantId + "'"
-            ).executeUpdate();
-        }
+    try {
+        chain.doFilter(request, response);
+    } finally {
+        OrgContext.clear(); // SEMPRE limpar após request
     }
 }
 ```
 
 ---
 
-## 3. Política RLS Completa — Exemplo com cameras {#rls-exemplo}
+## 4. Política RLS — Exemplo com cameras {#rls-exemplo}
 
 ```sql
 -- Habilitar RLS na tabela
-ALTER TABLE cameras ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cameras.cameras ENABLE ROW LEVEL SECURITY;
 
--- Política para usuários da aplicação (role: app_user)
-CREATE POLICY tenant_isolation_cameras ON cameras
-    AS PERMISSIVE
-    FOR ALL
-    TO app_user
+-- Política usando org_id
+CREATE POLICY org_isolation_cameras ON cameras.cameras
+    AS PERMISSIVE FOR ALL
     USING (
-        tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID
+        org_id = current_setting('app.current_org_id', TRUE)::UUID
     )
     WITH CHECK (
-        tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID
+        org_id = current_setting('app.current_org_id', TRUE)::UUID
     );
-
--- Superuser (migrations, admin interno) ignora RLS:
--- BYPASSRLS atributo no role de migrations
-
--- Verificação: tentativa de acessar câmera de outro tenant retorna 0 rows
--- (não lança erro — comportamento padrão do RLS)
 ```
 
-**Política aplicada em todas as tabelas com tenant_id:**
-- `users` — via [DATA_MODEL.md#users](./DATA_MODEL.md#users)
-- `cameras` — via [DATA_MODEL.md#cameras](./DATA_MODEL.md#cameras)
-- `locations` — via [DATA_MODEL.md#locations](./DATA_MODEL.md#locations)
-- `recordings` — via [DATA_MODEL.md#recordings](./DATA_MODEL.md#recordings)
-- `health_events` — via [DATA_MODEL.md#health_events](./DATA_MODEL.md#health_events)
-- `audit_logs` — via [DATA_MODEL.md#audit_logs](./DATA_MODEL.md#audit_logs)
-- `privacy_zones` — via [DATA_MODEL.md#privacy_zones](./DATA_MODEL.md#privacy_zones)
-- `alerts` — via [DATA_MODEL.md#alerts](./DATA_MODEL.md#alerts)
+**RLS aplicada em todas as tabelas com org_id:**
+- `cameras.cameras`, `cameras.locations`, `cameras.privacy_zones`
+- `health.camera_health_state`, `health.health_events`
+- `recordings.recordings`
+- `alerts.alerts`
+- `audit.audit_logs` (sem RLS — imutável por design)
+
+> **Nota:** `auth.users` **não tem RLS** — a coluna `org_id` foi removida dela (agora em `user_memberships`). A isolation de users ocorre pela membership.
 
 ---
 
-## 4. Fluxo de Onboarding de Novo Tenant {#onboarding}
+## 5. Onboarding de Nova Organização {#onboarding}
 
 ```
-Admin do Sistema acessa /admin/tenants → clica "Novo Tenant"
-        │
-        ▼
-POST /api/v1/admin/tenants
+Admin do Sistema → POST /api/v1/admin/organizations
 {
   "name": "Segurança ABC Ltda",
-  "owner_email": "owner@seguranca-abc.com.br",
+  "slug": "seguranca-abc",
   "plan": "PRO",
-  "domain": "monitor.seguranca-abc.com.br"  // opcional
+  "domain": "monitor.seguranca-abc.com.br"
 }
         │
-        ├── 1. Validar unicidade de slug (gerado do name) e domain
-        ├── 2. INSERT INTO tenants (slug, name, domain, plan, status='ACTIVE')
-        ├── 3. INSERT INTO users (tenant_id, email, role='ADMIN', active=true)
-        │      → senha temporária gerada (ou link de definição de senha)
-        ├── 4. Enviar e-mail de boas-vindas com link: /first-access?token=<uuid>
-        │      Token válido por 24h, uso único
-        └── 5. Retornar tenant criado
-        │
-        ▼
-Owner acessa link de first-access
-        │
-        ├── Define senha (mínimo 12 chars, 1 maiúscula, 1 número, 1 especial)
-        ├── Configura 2FA obrigatório (TOTP): POST /api/v1/auth/2fa/setup
-        └── Redirecionado para /dashboard (vazio, sem câmeras ainda)
+        ├── 1. Valida unicidade de slug e domain
+        ├── 2. INSERT INTO organizations.organizations
+        ├── 3. Cria usuário admin:
+        │      INSERT INTO auth.users (email, password_hash, ...)
+        │      INSERT INTO auth.user_memberships (user_id, org_id, role='ADMIN')
+        ├── 4. Envia e-mail de boas-vindas
+        └── 5. Retorna org criada
+
+Owner faz login → picker mostra sua org → acessa dashboard
 ```
 
 ---
 
-## 5. White-Label — Carregamento Dinâmico por Domínio {#white-label}
+## 6. White-Label — Carregamento Dinâmico por Domínio {#white-label}
 
-### 5.1 Como Funciona
+Quando o browser acessa `https://monitor.seguranca-abc.com.br`:
 
-Quando o browser acessa `https://monitor.seguranca-abc.com.br`, o frontend:
-
-1. Faz request para `GET /api/v1/tenants/config?domain=monitor.seguranca-abc.com.br` (sem auth — endpoint público para carregar branding)
-2. Backend consulta `SELECT logo_url, css_override, name FROM tenants WHERE domain = ?`
-3. Frontend injeta no `<head>`:
-
-```html
-<!-- Logo dinâmica -->
-<link rel="icon" href="{logo_url}">
-
-<!-- CSS customizado do tenant -->
-<style id="tenant-theme">
-  {css_override}
-  /* Exemplo: body { --primary: #1a73e8; --brand-name: "Segurança ABC"; } */
-</style>
-```
-
-4. Componentes React usam as variáveis CSS para renderizar com a identidade visual do tenant
-
-### 5.2 Configuração de Domínio Customizado
-
-Para ativar `monitor.seguranca-abc.com.br`:
-
-1. Tenant configura CNAME: `monitor.seguranca-abc.com.br → app.{plataforma}.com`
-2. Admin do sistema atualiza `tenants.domain = 'monitor.seguranca-abc.com.br'`
-3. Nginx já tem wildcard TLS (Cloudflare proxy lida com o certificado do subdomínio customizado)
-
-### 5.3 Estrutura do css_override
+1. Frontend faz `GET /api/v1/organizations/config?domain=monitor.seguranca-abc.com.br` (público, sem auth)
+2. Backend consulta `SELECT logo_url, css_override, name FROM organizations WHERE domain = ?`
+3. Frontend injeta CSS e logo da organização
 
 ```css
-/* Variáveis de tema que os componentes Shadcn/ui respeitam */
+/* css_override — variáveis de tema */
 :root {
   --primary: #1a73e8;
   --primary-foreground: #ffffff;
-  --secondary: #f0f4ff;
   --background: #0a0a0a;
-  --card: #1a1a2e;
 }
 ```
 
 ---
 
-## 6. Isolamento de Streams de Mídia {#isolamento-midia}
+## 7. Isolamento de Streams de Mídia {#isolamento-midia}
 
-O MediaMTX organiza os paths de stream com o tenant_id no prefixo, garantindo que um tenant não acesse o stream de outro:
+O MediaMTX organiza paths de stream com o org_id no prefixo:
 
 ```
-RTSP path: /tenant_{tenant_id}/camera_{camera_id}/main
-           /tenant_{tenant_id}/camera_{camera_id}/sub
-
-HLS URL:   https://media.domain.com/tenant_{tenant_id}/camera_{camera_id}/main/index.m3u8
-
-WebRTC:    https://media.domain.com/tenant_{tenant_id}/camera_{camera_id}/main/whep
+RTSP:    /org_{org_id}/camera_{camera_id}/main
+HLS:     https://media.domain.com/org_{org_id}/camera_{camera_id}/main/index.m3u8
+WebRTC:  https://media.domain.com/org_{org_id}/camera_{camera_id}/main/whep
 ```
 
 **Autenticação de stream via webhook:**
 
-Quando o browser tenta acessar um path, o MediaMTX chama um webhook no backend:
-
 ```
-MediaMTX → POST https://api.domain.com/internal/media/auth
+MediaMTX → POST /internal/media/auth
 {
   "action": "read",
-  "path": "/tenant_abc123/camera_xyz789/main",
-  "token": "eyJ..."  // JWT passado como query param pelo frontend
+  "path": "/org_abc123/camera_xyz789/main",
+  "token": "eyJ..."
 }
 
 Backend valida:
-  1. JWT válido
-  2. tenant_id no path == tenant_id no JWT (evita tenant A acessar câmera do tenant B)
-  3. camera_id existe e pertence ao tenant
-
-Resposta 200 = autorizado, 403 = negado
+  1. JWT válido e com orgId
+  2. org_id no path == orgId no JWT
+  3. camera_id pertence à org
 ```
 
 ---
 
-## 7. Planos e Limites por Tenant {#planos}
-
-Os limites são verificados no backend ao criar câmeras/usuários. Nunca confiar no frontend para enforcement.
+## 8. Planos e Limites por Organização {#planos}
 
 | Limite | FREE | STARTER | PRO | ENTERPRISE |
 |---|---|---|---|---|
 | Câmeras máximas | 4 | 16 | 64 | Ilimitado |
 | Usuários máximos | 2 | 5 | 20 | Ilimitado |
 | Retenção de gravações | 7 dias | 30 dias | 90 dias | 365 dias |
-| White-label | ❌ | ✅ básico (logo) | ✅ completo (CSS + logo) | ✅ + domínio próprio |
-| Suporte SLA | Community | E-mail | E-mail prioritário | Dedicado 24/7 |
+| White-label | ❌ | ✅ básico (logo) | ✅ completo | ✅ + domínio próprio |
 | API Access | ❌ | ❌ | ✅ | ✅ |
-| PTZ | ✅ | ✅ | ✅ | ✅ |
-
-**Verificação de limite no Spring Boot:**
 
 ```java
-// CameraService.java
-public Camera createCamera(CreateCameraRequest request, UUID tenantId) {
-    Tenant tenant = tenantRepository.findById(tenantId).orElseThrow();
-    int currentCount = cameraRepository.countByTenantId(tenantId);
-    int maxCameras = PlanLimits.maxCameras(tenant.getPlan());
+// CameraService.java — verificação de limite
+public Camera createCamera(CreateCameraRequest request, UUID orgId) {
+    Organization org = orgRepository.findById(orgId).orElseThrow();
+    long currentCount = cameraRepository.countActiveByOrgId(orgId);
 
-    if (currentCount >= maxCameras) {
+    if (currentCount >= org.getMaxCameras()) {
         throw new PlanLimitExceededException(
-            "Plano " + tenant.getPlan() + " permite no máximo " + maxCameras + " câmeras"
+            "Plano " + org.getPlan() + " permite no máximo " + org.getMaxCameras() + " câmeras"
         );
     }
-    // continuar com criação...
 }
 ```
 
 ---
 
-## 8. Referências Cruzadas
+## 9. Referências Cruzadas
 
-- Entidade tenants completa: [DATA_MODEL.md#tenants](./DATA_MODEL.md#tenants)
+- Entidade organizations completa: [DATA_MODEL.md#organizations](./DATA_MODEL.md#organizations)
 - Segurança e LGPD: [SECURITY_LGPD.md](./SECURITY_LGPD.md)
-- Endpoints relacionados: [API_CONTRACTS.md#tenants-current](./API_CONTRACTS.md#tenants-current)
-- Isolamento de mídia detalhado: [MEDIA_PIPELINE.md](./MEDIA_PIPELINE.md)
+- Endpoints: [API_CONTRACTS.md#organizations](./API_CONTRACTS.md#organizations)
+- Isolamento de mídia: [MEDIA_PIPELINE.md](./MEDIA_PIPELINE.md)

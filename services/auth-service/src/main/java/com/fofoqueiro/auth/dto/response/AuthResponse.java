@@ -1,10 +1,12 @@
 package com.fofoqueiro.auth.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 import java.util.UUID;
 
+@JsonInclude(JsonInclude.Include.NON_DEFAULT)
 public record AuthResponse(
         @JsonProperty("access_token")          String accessToken,
         @JsonProperty("refresh_token")          String refreshToken,

@@ -11,8 +11,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -22,13 +24,13 @@ public class TenantController {
 
     @GetMapping("/api/v1/organizations/me")
     public ResponseEntity<TenantResponse> getMyOrg() {
-        return ResponseEntity.ok(tenantService.findById(OrgContext.get()));
+        return ResponseEntity.ok(tenantService.findById(requireOrgContext()));
     }
 
     @PutMapping("/api/v1/organizations/me")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<TenantResponse> updateMyOrg(@RequestBody UpdateTenantRequest req) {
-        return ResponseEntity.ok(tenantService.update(OrgContext.get(), req));
+        return ResponseEntity.ok(tenantService.update(requireOrgContext(), req));
     }
 
     /** Endpoint público para resolução de white-label — sem autenticação */
@@ -52,5 +54,15 @@ public class TenantController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<TenantResponse> create(@Valid @RequestBody CreateTenantRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(tenantService.create(req));
+    }
+
+    /** Valida que o OrgContext foi populado pelo JWT — retorna 401 se não. */
+    private UUID requireOrgContext() {
+        UUID orgId = OrgContext.get();
+        if (orgId == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                    "Token inválido ou sem org_id — use um token scoped (POST /auth/select-org)");
+        }
+        return orgId;
     }
 }

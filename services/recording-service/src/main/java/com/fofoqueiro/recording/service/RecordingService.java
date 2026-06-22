@@ -42,7 +42,7 @@ public class RecordingService {
     }
 
     @Transactional(readOnly = true)
-    public Page<RecordingResponse> findByTenant(UUID orgId, Pageable pageable) {
+    public Page<RecordingResponse> findByOrg(UUID orgId, Pageable pageable) {
         setRls(orgId);
         return recordingRepository.findByOrgId(orgId, pageable).map(RecordingResponse::from);
     }

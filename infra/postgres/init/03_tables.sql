@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS auth.refresh_tokens (
     token_hash  VARCHAR(255) NOT NULL UNIQUE,
     expires_at  TIMESTAMPTZ  NOT NULL,
     revoked     BOOLEAN      NOT NULL DEFAULT false,
-    ip_address  INET,
+    ip_address  VARCHAR(45),
     user_agent  TEXT,
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );

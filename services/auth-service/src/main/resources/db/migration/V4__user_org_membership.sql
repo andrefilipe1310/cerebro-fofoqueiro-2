@@ -3,6 +3,15 @@
 -- @responsibility Refatora user de 1:N para N:M com organization. Cria user_memberships.
 -- @see docs/ARCHITECTURE.md#auth-service
 
+-- Garante que a função existe (pode não ter sido criada em ambientes com 03_tables.sql)
+CREATE OR REPLACE FUNCTION auth.trigger_set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- ─── JOIN TABLE: user ↔ organization (N:M) ──────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS auth.user_memberships (
@@ -29,13 +38,22 @@ BEGIN
 END $$;
 
 -- ─── MIGRAÇÃO DE DADOS: auth.users → auth.user_memberships ──────────────────
--- Preserva tenant_id e role existentes como memberships
+-- Só executa se tenant_id ainda existir (upgrade de instalações antigas).
+-- Em instalações novas (03_tables.sql já cria users sem tenant_id), é no-op.
 
-INSERT INTO auth.user_memberships (user_id, org_id, role, active)
-SELECT id, tenant_id, role, active
-FROM auth.users
-WHERE tenant_id IS NOT NULL
-ON CONFLICT (user_id, org_id) DO NOTHING;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'auth' AND table_name = 'users' AND column_name = 'tenant_id'
+    ) THEN
+        INSERT INTO auth.user_memberships (user_id, org_id, role, active)
+        SELECT id, tenant_id, role, active
+        FROM auth.users
+        WHERE tenant_id IS NOT NULL
+        ON CONFLICT (user_id, org_id) DO NOTHING;
+    END IF;
+END $$;
 
 -- ─── REMOVE COLUNAS QUE SAEM DA ENTIDADE USER ───────────────────────────────
 -- tenant_id e role agora vivem em user_memberships

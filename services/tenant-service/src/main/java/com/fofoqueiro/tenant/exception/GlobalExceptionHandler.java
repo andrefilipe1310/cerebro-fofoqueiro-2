@@ -13,6 +13,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.Instant;
@@ -41,6 +42,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleNotFound(NoResourceFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(apiError("NOT_FOUND", "Recurso não encontrado", 404, null));
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, Object>> handleResponseStatus(ResponseStatusException ex) {
+        int status = ex.getStatusCode().value();
+        String code = status == 401 ? "UNAUTHORIZED" : status == 403 ? "FORBIDDEN" : "ERROR";
+        return ResponseEntity.status(status).body(apiError(code, ex.getReason(), status, null));
     }
 
     @ExceptionHandler(Exception.class)
