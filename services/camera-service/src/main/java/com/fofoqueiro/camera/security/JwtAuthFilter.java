@@ -33,7 +33,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (token != null) {
             try {
                 Claims claims = jwtService.validateAndExtractClaims(token);
-                TenantContext.set(UUID.fromString(claims.get("tenantId", String.class)));
+                String orgId = claims.get("orgId", String.class);
+                if (orgId != null) OrgContext.set(UUID.fromString(orgId));
                 var auth = new UsernamePasswordAuthenticationToken(
                         claims.getSubject(), null,
                         List.of(new SimpleGrantedAuthority("ROLE_" + claims.get("role", String.class))));
@@ -45,7 +46,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         try {
             chain.doFilter(request, response);
         } finally {
-            TenantContext.clear();
+            OrgContext.clear();
         }
     }
 

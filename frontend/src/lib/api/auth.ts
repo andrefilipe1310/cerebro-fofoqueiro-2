@@ -2,8 +2,11 @@ import { apiClient } from './client';
 import type { LoginResponse } from '@/types';
 
 export const authApi = {
-  login: (tenantId: string, email: string, password: string) =>
-    apiClient.post<LoginResponse>('/auth/login', { tenant_id: tenantId, email, password }),
+  login: (email: string, password: string) =>
+    apiClient.post<LoginResponse>('/auth/login', { email, password }),
+
+  selectOrg: (tempToken: string, orgId: string) =>
+    apiClient.post<LoginResponse>('/auth/select-org', { temp_token: tempToken, org_id: orgId }),
 
   verify2fa: (tempToken: string, totpCode: string) =>
     apiClient.post<LoginResponse>('/auth/2fa/verify', { temp_token: tempToken, totp_code: totpCode }),

@@ -10,7 +10,9 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 
 # Instale o pnpm globalmente no contêiner e rode a instalação limpa
-RUN npm install -g pnpm && pnpm install --frozen-lockfile
+RUN npm install -g pnpm && \
+    echo "shamefully-hoist=true" > .npmrc && \
+    pnpm install --frozen-lockfile
 
 # Stage 2: builder — build de produção
 FROM node:20-alpine AS builder
@@ -18,6 +20,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
+ENV NEXT_BUILD_STANDALONE true
 RUN npm run build
 
 # Stage 3: runner — imagem final mínima com standalone output

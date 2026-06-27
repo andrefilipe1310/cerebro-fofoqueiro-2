@@ -1,6 +1,7 @@
 package com.fofoqueiro.auth.security;
 
 import com.fofoqueiro.auth.domain.entity.User;
+import com.fofoqueiro.auth.domain.entity.UserMembership;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -32,31 +33,29 @@ public class JwtService {
         this.refreshExpirationMs = refreshExpirationMs;
     }
 
-    public String generateAccessToken(User user) {
+    public String generateAccessToken(User user, UUID orgId, String role) {
         return Jwts.builder()
                 .subject(user.getId().toString())
                 .issuer("fofoqueiro")
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + accessExpirationMs))
                 .claims(Map.of(
-                        "tenantId", user.getTenantId().toString(),
-                        "role", user.getRole().name(),
+                        "orgId", orgId.toString(),
+                        "role", role,
                         "email", user.getEmail()
                 ))
                 .signWith(signingKey)
                 .compact();
     }
 
-    public String generateTempToken(UUID userId, UUID tenantId) {
+    /** Temp token usado no fluxo 2FA e na seleção de org. Carrega apenas userId. */
+    public String generateTempToken(UUID userId) {
         return Jwts.builder()
                 .subject(userId.toString())
                 .issuer("fofoqueiro")
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + 300_000))
-                .claims(Map.of(
-                        "tenantId", tenantId.toString(),
-                        "type", "2fa_pending"
-                ))
+                .claims(Map.of("type", "pending"))
                 .signWith(signingKey)
                 .compact();
     }

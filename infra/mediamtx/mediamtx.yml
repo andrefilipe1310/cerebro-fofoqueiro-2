@@ -48,8 +48,8 @@ pathDefaults:
   recordFormat: fmp4
   recordSegmentDuration: 60s
 
-# Paths por câmera: tenant_{tenant_id}/camera_{camera_id}/{quality}
-# Ex: tenant_abc123/camera_xyz789/main
+# Paths por câmera: org_{org_id}/camera_{camera_id}/{quality}
+# Ex: org_abc123/camera_xyz789/main
 paths:
-  "~^tenant_[a-f0-9-]+/camera_[a-f0-9-]+/(main|sub|thumb)$":
+  "~^org_[a-f0-9-]+/camera_[a-f0-9-]+/(main|sub|thumb)$":
     source: publisher

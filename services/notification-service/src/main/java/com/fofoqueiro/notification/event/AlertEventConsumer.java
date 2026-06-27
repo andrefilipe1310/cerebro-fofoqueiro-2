@@ -25,19 +25,20 @@ public class AlertEventConsumer {
             String eventType = node.path("eventType").asText();
             if (!"CAMERA_OFFLINE".equals(eventType)) return;
 
-            String tenantId = node.path("tenantId").asText();
+            JsonNode orgIdNode = node.has("orgId") ? node.get("orgId") : node.get("tenantId");
+            String orgId = orgIdNode != null ? orgIdNode.asText() : "";
             String cameraId = node.path("cameraId").asText();
             String cameraName = node.path("cameraName").asText("Camera " + cameraId.substring(0, 8));
-            String tenantName = node.path("tenantName").asText("Your Organization");
+            String orgName = node.has("orgName") ? node.get("orgName").asText("Your Organization") : node.path("tenantName").asText("Your Organization");
             String recipientEmail = node.path("recipientEmail").asText();
 
             if (recipientEmail.isBlank()) return;
-            if (throttleService.isThrottled(tenantId, "camera_offline", cameraId)) {
+            if (throttleService.isThrottled(orgId, "camera_offline", cameraId)) {
                 log.debug("Throttled camera_offline notification for camera {}", cameraId);
                 return;
             }
 
-            emailService.sendCameraOffline(recipientEmail, cameraName, tenantName);
+            emailService.sendCameraOffline(recipientEmail, cameraName, orgName);
         } catch (Exception e) {
             log.error("Error processing alert event: {}", e.getMessage(), e);
         }

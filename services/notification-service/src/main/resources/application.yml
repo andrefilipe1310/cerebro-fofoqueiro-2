@@ -51,6 +51,15 @@ email:
   from: ${EMAIL_FROM:noreply@fofoqueiro.com}
   from-name: ${EMAIL_FROM_NAME:Fofoqueiro}
 
+springdoc:
+  swagger-ui:
+    path: /docs
+    operations-sorter: method
+    try-it-out-enabled: true
+  api-docs:
+    path: /v3/api-docs
+  show-actuator: false
+
 ---
 spring:
   config:

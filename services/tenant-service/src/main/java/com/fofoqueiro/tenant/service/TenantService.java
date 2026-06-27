@@ -31,7 +31,7 @@ public class TenantService {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
-    private static final String CACHE_KEY = "tenant:";
+    private static final String CACHE_KEY = "org:";
     private static final long CACHE_TTL_MINUTES = 5;
 
     @Transactional(readOnly = true)
@@ -41,12 +41,12 @@ public class TenantService {
             try {
                 return objectMapper.readValue(cached, TenantResponse.class);
             } catch (Exception e) {
-                log.warn("Cache deserialize error for tenant {}", tenantId);
+                log.warn("Cache deserialize error for org {}", tenantId);
             }
         }
 
         Tenant tenant = tenantRepository.findById(tenantId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Tenant não encontrado"));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Organização não encontrada"));
 
         TenantResponse response = TenantResponse.from(tenant);
         cacheResponse(CACHE_KEY + tenantId, response);
@@ -55,7 +55,7 @@ public class TenantService {
 
     @Transactional(readOnly = true)
     public TenantResponse findByDomain(String domain) {
-        String key = "tenant:domain:" + domain;
+        String key = "org:domain:" + domain;
         String cached = redisTemplate.opsForValue().get(key);
         if (cached != null) {
             try {
@@ -66,7 +66,7 @@ public class TenantService {
         }
 
         Tenant tenant = tenantRepository.findByDomain(domain)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Tenant não encontrado para domínio: " + domain));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Organização não encontrada para domínio: " + domain));
 
         TenantResponse response = TenantResponse.from(tenant);
         cacheResponse(key, response);
@@ -75,7 +75,7 @@ public class TenantService {
 
     @Transactional(readOnly = true)
     public TenantResponse findBySlug(String slug) {
-        String key = "tenant:slug:" + slug;
+        String key = "org:slug:" + slug;
         String cached = redisTemplate.opsForValue().get(key);
         if (cached != null) {
             try {
@@ -86,7 +86,7 @@ public class TenantService {
         }
 
         Tenant tenant = tenantRepository.findBySlug(slug)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Tenant não encontrado para slug: " + slug));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Organização não encontrada para slug: " + slug));
 
         TenantResponse response = TenantResponse.from(tenant);
         cacheResponse(key, response);
@@ -96,7 +96,7 @@ public class TenantService {
     @Transactional
     public TenantResponse update(UUID tenantId, UpdateTenantRequest req) {
         Tenant tenant = tenantRepository.findById(tenantId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Tenant não encontrado"));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Organização não encontrada"));
 
         if (req.name() != null) tenant.setName(req.name());
         if (req.domain() != null) tenant.setDomain(req.domain());
@@ -141,22 +141,22 @@ public class TenantService {
             redisTemplate.opsForValue().set(key, objectMapper.writeValueAsString(response),
                     CACHE_TTL_MINUTES, TimeUnit.MINUTES);
         } catch (Exception e) {
-            log.warn("Failed to cache tenant response: {}", e.getMessage());
+            log.warn("Failed to cache org response: {}", e.getMessage());
         }
     }
 
     private void publishTenantEvent(Tenant tenant, String eventType) {
         try {
-            Map<String, Object> payload = Map.of("tenantId", tenant.getId().toString(), "slug", tenant.getSlug());
+            Map<String, Object> payload = Map.of("orgId", tenant.getId().toString(), "slug", tenant.getSlug());
             OutboxEvent event = OutboxEvent.builder()
-                    .topic("tenant.events")
+                    .topic("organization.events")
                     .eventType(eventType)
                     .payload(objectMapper.writeValueAsString(payload))
                     .attempts(0)
                     .build();
             outboxEventRepository.save(event);
         } catch (Exception e) {
-            log.warn("Falha ao publicar evento tenant: {}", e.getMessage());
+            log.warn("Falha ao publicar evento org: {}", e.getMessage());
         }
     }
 

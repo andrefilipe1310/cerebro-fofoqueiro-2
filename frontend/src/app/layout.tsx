@@ -14,7 +14,7 @@ const spaceGrotesk = Space_Grotesk({
 
 export const metadata: Metadata = {
   title: 'Fofoqueiro — Monitoramento',
-  description: 'Plataforma SaaS de videomonitoramento multi-tenant',
+  description: 'Plataforma SaaS de videomonitoramento multi-organização',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

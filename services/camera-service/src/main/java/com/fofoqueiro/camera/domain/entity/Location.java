@@ -16,8 +16,8 @@ public class Location {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "tenant_id", nullable = false)
-    private UUID tenantId;
+    @Column(name = "org_id", nullable = false)
+    private UUID orgId;
 
     @Column(nullable = false)
     private String name;

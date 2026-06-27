@@ -15,18 +15,18 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
 
     Optional<AuditLog> findByEventId(String eventId);
 
-    @Query(value = "SELECT * FROM audit.audit_logs WHERE tenant_id = :tenantId ORDER BY occurred_at DESC",
-           countQuery = "SELECT count(*) FROM audit.audit_logs WHERE tenant_id = :tenantId",
+    @Query(value = "SELECT * FROM audit.audit_logs WHERE org_id = :orgId ORDER BY occurred_at DESC",
+           countQuery = "SELECT count(*) FROM audit.audit_logs WHERE org_id = :orgId",
            nativeQuery = true)
-    Page<AuditLog> findByTenantId(UUID tenantId, Pageable pageable);
+    Page<AuditLog> findByOrgId(UUID orgId, Pageable pageable);
 
-    @Query(value = "SELECT * FROM audit.audit_logs WHERE tenant_id = :tenantId AND action = :action ORDER BY occurred_at DESC",
-           countQuery = "SELECT count(*) FROM audit.audit_logs WHERE tenant_id = :tenantId AND action = :action",
+    @Query(value = "SELECT * FROM audit.audit_logs WHERE org_id = :orgId AND action = :action ORDER BY occurred_at DESC",
+           countQuery = "SELECT count(*) FROM audit.audit_logs WHERE org_id = :orgId AND action = :action",
            nativeQuery = true)
-    Page<AuditLog> findByTenantIdAndAction(UUID tenantId, String action, Pageable pageable);
+    Page<AuditLog> findByOrgIdAndAction(UUID orgId, String action, Pageable pageable);
 
-    @Query(value = "SELECT * FROM audit.audit_logs WHERE tenant_id = :tenantId AND user_id = :userId ORDER BY occurred_at DESC",
-           countQuery = "SELECT count(*) FROM audit.audit_logs WHERE tenant_id = :tenantId AND user_id = :userId",
+    @Query(value = "SELECT * FROM audit.audit_logs WHERE org_id = :orgId AND user_id = :userId ORDER BY occurred_at DESC",
+           countQuery = "SELECT count(*) FROM audit.audit_logs WHERE org_id = :orgId AND user_id = :userId",
            nativeQuery = true)
-    Page<AuditLog> findByTenantIdAndUserId(UUID tenantId, UUID userId, Pageable pageable);
+    Page<AuditLog> findByOrgIdAndUserId(UUID orgId, UUID userId, Pageable pageable);
 }

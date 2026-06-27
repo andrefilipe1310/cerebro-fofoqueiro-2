@@ -9,7 +9,7 @@ import java.util.UUID;
 public record AuditLogResponse(
         UUID id,
         @JsonProperty("event_id") String eventId,
-        @JsonProperty("tenant_id") UUID tenantId,
+        @JsonProperty("org_id") UUID orgId,
         @JsonProperty("user_id") UUID userId,
         String action,
         @JsonProperty("resource_type") String resourceType,
@@ -18,7 +18,7 @@ public record AuditLogResponse(
         @JsonProperty("occurred_at") OffsetDateTime occurredAt
 ) {
     public static AuditLogResponse from(AuditLog log) {
-        return new AuditLogResponse(log.getId(), log.getEventId(), log.getTenantId(),
+        return new AuditLogResponse(log.getId(), log.getEventId(), log.getOrgId(),
                 log.getUserId(), log.getAction(), log.getResourceType(), log.getResourceId(),
                 log.getIpAddress(), log.getOccurredAt());
     }

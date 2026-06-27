@@ -4,7 +4,6 @@ import com.fofoqueiro.alert.domain.entity.Alert;
 import com.fofoqueiro.alert.dto.response.AlertResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
@@ -18,7 +17,7 @@ public class AlertBroadcastService {
     public void broadcast(Alert alert) {
         try {
             AlertResponse response = AlertResponse.from(alert);
-            String destination = "/topic/tenant/" + alert.getTenantId() + "/alerts";
+            String destination = "/topic/org/" + alert.getOrgId() + "/alerts";
             messagingTemplate.convertAndSend(destination, response);
             log.debug("Alert broadcast to {}", destination);
         } catch (Exception e) {

@@ -1,12 +1,12 @@
 -- @path services/tenant-service/src/main/resources/db/migration/V1__create_tenant_tables.sql
--- @owner tenant-service
--- @responsibility Cria tabelas do schema tenants: tenants, outbox_events
--- @see docs/DATA_MODEL.md#tenants | docs/SDD.md#outbox
+-- @owner organization-service (antigo tenant-service)
+-- @responsibility Cria tabelas do schema organizations: organizations, outbox_events
+-- @see docs/DATA_MODEL.md#organizations | docs/SDD.md#outbox
 
-CREATE SCHEMA IF NOT EXISTS tenants;
+CREATE SCHEMA IF NOT EXISTS organizations;
 
 -- Função para atualizar updated_at automaticamente
-CREATE OR REPLACE FUNCTION tenants.trigger_set_updated_at()
+CREATE OR REPLACE FUNCTION organizations.trigger_set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = NOW();
@@ -14,9 +14,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- ─── TENANTS ────────────────────────────────────────────────────────────────
+-- ─── ORGANIZATIONS ──────────────────────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS tenants.tenants (
+CREATE TABLE IF NOT EXISTS organizations.organizations (
     id              UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
     slug            VARCHAR(100)  NOT NULL UNIQUE,
     name            VARCHAR(255)  NOT NULL,
@@ -34,18 +34,18 @@ CREATE TABLE IF NOT EXISTS tenants.tenants (
     updated_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_tenants_slug   ON tenants.tenants (slug);
-CREATE INDEX IF NOT EXISTS idx_tenants_domain ON tenants.tenants (domain) WHERE domain IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_tenants_status ON tenants.tenants (status);
-CREATE INDEX IF NOT EXISTS idx_tenants_plan   ON tenants.tenants (plan);
+CREATE INDEX IF NOT EXISTS idx_organizations_slug   ON organizations.organizations (slug);
+CREATE INDEX IF NOT EXISTS idx_organizations_domain ON organizations.organizations (domain) WHERE domain IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_organizations_status ON organizations.organizations (status);
+CREATE INDEX IF NOT EXISTS idx_organizations_plan   ON organizations.organizations (plan);
 
-CREATE TRIGGER tenants_set_updated_at
-    BEFORE UPDATE ON tenants.tenants
-    FOR EACH ROW EXECUTE FUNCTION tenants.trigger_set_updated_at();
+CREATE TRIGGER organizations_set_updated_at
+    BEFORE UPDATE ON organizations.organizations
+    FOR EACH ROW EXECUTE FUNCTION organizations.trigger_set_updated_at();
 
 -- ─── OUTBOX_EVENTS ──────────────────────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS tenants.outbox_events (
+CREATE TABLE IF NOT EXISTS organizations.outbox_events (
     id          UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
     topic       VARCHAR(100)  NOT NULL,
     event_type  VARCHAR(100)  NOT NULL,
@@ -56,5 +56,5 @@ CREATE TABLE IF NOT EXISTS tenants.outbox_events (
     last_error  TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_outbox_unsent ON tenants.outbox_events (created_at)
+CREATE INDEX IF NOT EXISTS idx_org_outbox_unsent ON organizations.outbox_events (created_at)
     WHERE sent_at IS NULL;

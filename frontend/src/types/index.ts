@@ -1,18 +1,17 @@
 // @path frontend/src/types/index.ts
 // @owner frontend
 // @responsibility Tipos TypeScript globais — baseados nos contratos da API
-// @see docs/API_CONTRACTS.md | docs/DATA_MODEL.md
 
-// ─── TENANT ───────────────────────────────────────────────────────────────────
+// ─── ORGANIZATION ─────────────────────────────────────────────────────────────
 
-export type TenantPlan = 'FREE' | 'STARTER' | 'PRO' | 'ENTERPRISE';
-export type TenantStatus = 'ACTIVE' | 'SUSPENDED' | 'CANCELLED';
+export type OrgPlan = 'FREE' | 'STARTER' | 'PRO' | 'ENTERPRISE';
+export type OrgStatus = 'ACTIVE' | 'SUSPENDED' | 'CANCELLED';
 
-export interface Tenant {
+export interface Org {
   id: string;
   name: string;
   slug: string;
-  plan: TenantPlan;
+  plan: OrgPlan;
   logo_url: string | null;
   limits: {
     cameras_max: number;
@@ -20,6 +19,15 @@ export interface Tenant {
     users_max: number;
     retention_days: number;
   };
+}
+
+/** Opção de organização retornada no login quando usuário tem múltiplas orgs */
+export interface OrgOption {
+  id: string;
+  slug: string;
+  name: string;
+  logo_url: string | null;
+  role: string;
 }
 
 // ─── USER ─────────────────────────────────────────────────────────────────────
@@ -68,7 +76,6 @@ export interface StreamUrlResponse {
 
 export type AlertType = 'CAMERA_OFFLINE' | 'CAMERA_ONLINE' | 'MOTION_DETECTED' | 'LOW_CONFIDENCE';
 export type AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
-
 export type AlertStatus = 'TRIGGERED' | 'ACKNOWLEDGED' | 'RESOLVED';
 
 export interface Alert {
@@ -76,7 +83,7 @@ export interface Alert {
   type: AlertType;
   message: string;
   camera_id: string;
-  tenant_id: string;
+  org_id: string;
   severity: AlertSeverity;
   status: AlertStatus;
   triggered_at: string;
@@ -144,11 +151,16 @@ export interface LoginResponse {
   refresh_token?: string;
   expires_in: number;
   requires_2fa: boolean;
-  user?: User;
+  requires_org_selection: boolean;
+  temp_token?: string;
+  user_id?: string;
+  org_id?: string;
+  role?: string;
+  orgs?: OrgOption[];
 }
 
 export interface AuthState {
   user: User | null;
-  tenant: Tenant | null;
+  org: Org | null;
   isAuthenticated: boolean;
 }

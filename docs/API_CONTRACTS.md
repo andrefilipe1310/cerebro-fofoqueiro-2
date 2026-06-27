@@ -1,6 +1,6 @@
 <!-- Meta
-Versão: v0.1.0
-Última atualização: 2026-06-04
+Versão: v0.2.0
+Última atualização: 2026-06-21
 Documentos relacionados:
   - [Data Model](./DATA_MODEL.md)
   - [Security LGPD](./SECURITY_LGPD.md)
@@ -83,7 +83,7 @@ Request com paginação: `GET /api/v1/cameras?limit=20&cursor=eyJpZCI6IjEyMyJ9`
 
 ### POST /api/v1/auth/login {#auth-login}
 
-Autentica o usuário e retorna tokens JWT.
+Autentica o usuário com e-mail + senha. **Não requer slug de organização** — o sistema descobre as orgs do usuário automaticamente.
 
 **Auth:** Nenhuma
 
@@ -91,8 +91,61 @@ Autentica o usuário e retorna tokens JWT.
 ```json
 {
   "email": "operador@empresa.com",
-  "password": "senha_segura",
-  "tenant_slug": "seguranca-abc"
+  "password": "senha_segura"
+}
+```
+
+**Response 200 — Usuário com 1 org (auto-seleção):**
+```json
+{
+  "access_token": "eyJ...",
+  "refresh_token": "eyJ...",
+  "expires_in": 900,
+  "requires_2fa": false,
+  "requires_org_selection": false,
+  "user_id": "uuid",
+  "org_id": "uuid",
+  "role": "OPERATOR"
+}
+```
+
+**Response 200 — Usuário com múltiplas orgs (picker):**
+```json
+{
+  "requires_org_selection": true,
+  "temp_token": "eyJ...",
+  "user_id": "uuid",
+  "orgs": [
+    { "id": "uuid-1", "name": "Empresa A", "slug": "empresa-a", "logo_url": null, "role": "ADMIN" },
+    { "id": "uuid-2", "name": "Empresa B", "slug": "empresa-b", "logo_url": "https://...", "role": "VIEWER" }
+  ]
+}
+```
+
+**Response 200 — 2FA pendente:**
+```json
+{
+  "requires_2fa": true,
+  "temp_token": "eyJ...",
+  "user_id": "uuid"
+}
+```
+
+**Erros:** 401 (credenciais inválidas), 403 (conta desativada), 422 (sem org ativa)
+
+---
+
+### POST /api/v1/auth/select-org {#auth-select-org}
+
+Seleciona a organização após o org picker. Emite JWT scoped para a org escolhida.
+
+**Auth:** Nenhuma (temp_token no body)
+
+**Request Body:**
+```json
+{
+  "temp_token": "eyJ...",
+  "org_id": "uuid"
 }
 ```
 
@@ -102,19 +155,13 @@ Autentica o usuário e retorna tokens JWT.
   "access_token": "eyJ...",
   "refresh_token": "eyJ...",
   "expires_in": 900,
-  "requires_2fa": true,
-  "user": {
-    "id": "uuid",
-    "email": "operador@empresa.com",
-    "role": "OPERATOR",
-    "totp_enabled": true
-  }
+  "user_id": "uuid",
+  "org_id": "uuid",
+  "role": "ADMIN"
 }
 ```
 
-Se `requires_2fa: true`, o `access_token` retornado é temporário (válido apenas para `/auth/2fa/verify`).
-
-**Erros:** 401 (credenciais inválidas), 403 (conta desativada), 422 (tenant suspenso)
+**Erros:** 401 (temp_token inválido ou expirado), 403 (org_id não pertence ao usuário)
 
 ---
 
@@ -297,9 +344,9 @@ Retorna URL do stream ao vivo (WebRTC via WHEP).
 ```json
 {
   "type": "webrtc",
-  "url": "https://media.domain.com/tenant_abc/camera_xyz/main/whep",
+  "url": "https://media.domain.com/org_abc/camera_xyz/main/whep",
   "expires_at": "2026-06-04T15:30:00Z",
-  "fallback_hls": "https://media.domain.com/tenant_abc/camera_xyz/main/index.m3u8"
+  "fallback_hls": "https://media.domain.com/org_abc/camera_xyz/main/index.m3u8"
 }
 ```
 
@@ -320,7 +367,7 @@ Retorna URL de stream HLS. Usado para sub-streams no mosaico.
 ```json
 {
   "type": "hls",
-  "url": "https://media.domain.com/tenant_abc/camera_xyz/sub/index.m3u8",
+  "url": "https://media.domain.com/org_abc/camera_xyz/sub/index.m3u8",
   "expires_at": "2026-06-04T15:30:00Z"
 }
 ```
@@ -466,11 +513,11 @@ Envia comando de controle PTZ para câmera. Requer `ptz_enabled = true`.
 
 ---
 
-## 4. Tenant e White-Label {#tenant-endpoints}
+## 4. Organizações {#organizations}
 
-### GET /api/v1/tenants/current {#tenants-current}
+### GET /api/v1/organizations/me {#organizations-me}
 
-Retorna dados do tenant autenticado. Ver entidade [tenants](./DATA_MODEL.md#tenants).
+Retorna dados da organização atual (scoped pelo JWT). Ver entidade [organizations](./DATA_MODEL.md#organizations).
 
 **Auth:** Bearer | **Roles:** ADMIN, OPERATOR, VIEWER
 
@@ -481,35 +528,51 @@ Retorna dados do tenant autenticado. Ver entidade [tenants](./DATA_MODEL.md#tena
   "name": "Segurança ABC Ltda",
   "slug": "seguranca-abc",
   "plan": "PRO",
-  "logo_url": "https://r2.../tenant/logo.png",
-  "limits": {
-    "cameras_max": 64,
-    "cameras_current": 12,
-    "users_max": 20,
-    "retention_days": 90
-  }
+  "logo_url": "https://r2.../org/logo.png",
+  "max_cameras": 64,
+  "max_users": 20,
+  "retention_days": 90,
+  "status": "ACTIVE"
 }
 ```
 
 ---
 
-### PATCH /api/v1/tenants/current/branding {#tenants-branding}
+### PUT /api/v1/organizations/me {#organizations-update}
 
-Atualiza logo e CSS do tenant (white-label).
+Atualiza nome, logo e CSS da organização (white-label).
 
 **Auth:** Bearer | **Roles:** ADMIN
 
-**Request Body (multipart/form-data):**
+**Request Body:**
+```json
+{
+  "name": "Segurança ABC Ltda",
+  "logo_url": "https://r2.../org/logo.png",
+  "css_override": "body { --primary: #1a73e8; }"
+}
 ```
-logo: <arquivo PNG/SVG, max 2MB>
-css_override: "body { --primary: #1a73e8; }"
-```
+
+**Response 200:** mesmo formato do GET.
+
+---
+
+### GET /api/v1/organizations/config {#organizations-config}
+
+Endpoint **público** (sem auth) para resolução de white-label por domínio ou slug.
+
+**Query Params:**
+- `domain`: domínio customizado (ex: `monitor.empresa.com`)
+- `slug`: slug da org (ex: `seguranca-abc`)
 
 **Response 200:**
 ```json
 {
-  "logo_url": "https://r2.../tenant/logo.png",
-  "css_override": "body { --primary: #1a73e8; }"
+  "id": "uuid",
+  "name": "Segurança ABC Ltda",
+  "slug": "seguranca-abc",
+  "logo_url": "https://r2.../org/logo.png",
+  "css_override": ":root { --primary: #1a73e8; }"
 }
 ```
 
@@ -611,7 +674,7 @@ Conexão WebSocket usando protocolo STOMP sobre SockJS.
 
 **Tópico de assinatura (subscribe):**
 ```
-/topic/tenant/{tenant_id}/alerts
+/topic/org/{org_id}/alerts
 ```
 
 **Formato da mensagem recebida:**

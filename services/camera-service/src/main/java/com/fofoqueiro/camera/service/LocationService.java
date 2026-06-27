@@ -23,16 +23,16 @@ public class LocationService {
     private EntityManager em;
 
     @Transactional(readOnly = true)
-    public List<LocationResponse> list(UUID tenantId) {
-        setRls(tenantId);
-        return locationRepository.findByTenantId(tenantId).stream().map(LocationResponse::from).toList();
+    public List<LocationResponse> list(UUID orgId) {
+        setRls(orgId);
+        return locationRepository.findByOrgId(orgId).stream().map(LocationResponse::from).toList();
     }
 
     @Transactional
-    public LocationResponse create(UUID tenantId, CreateLocationRequest req) {
-        setRls(tenantId);
+    public LocationResponse create(UUID orgId, CreateLocationRequest req) {
+        setRls(orgId);
         Location location = Location.builder()
-                .tenantId(tenantId)
+                .orgId(orgId)
                 .name(req.name())
                 .address(req.address())
                 .lat(req.lat())
@@ -42,10 +42,10 @@ public class LocationService {
         return LocationResponse.from(location);
     }
 
-    private void setRls(UUID tenantId) {
-        if (tenantId != null) {
-            em.createNativeQuery("SELECT set_config('app.current_tenant_id', :tid, true)")
-              .setParameter("tid", tenantId.toString())
+    private void setRls(UUID orgId) {
+        if (orgId != null) {
+            em.createNativeQuery("SELECT set_config('app.current_org_id', :oid, true)")
+              .setParameter("oid", orgId.toString())
               .getSingleResult();
         }
     }

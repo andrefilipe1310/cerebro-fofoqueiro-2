@@ -22,6 +22,7 @@
         <awssdk.version>2.27.0</awssdk.version>
         <samstevens-totp.version>1.7.1</samstevens-totp.version>
         <lombok.version>1.18.34</lombok.version>
+        <springdoc.version>2.6.0</springdoc.version>
     </properties>
 
     <dependencyManagement>
@@ -92,6 +93,13 @@
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>url-connection-client</artifactId>
                 <version>${awssdk.version}</version>
+            </dependency>
+
+            <!-- SpringDoc OpenAPI (Swagger UI) -->
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
             </dependency>
 
             <!-- Testcontainers -->

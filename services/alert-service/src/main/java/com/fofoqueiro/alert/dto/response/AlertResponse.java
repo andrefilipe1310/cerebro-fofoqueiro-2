@@ -12,7 +12,7 @@ import java.util.UUID;
 public record AlertResponse(
         UUID id,
         @JsonProperty("camera_id") UUID cameraId,
-        @JsonProperty("tenant_id") UUID tenantId,
+        @JsonProperty("org_id") UUID orgId,
         AlertType type,
         String message,
         AlertSeverity severity,
@@ -22,7 +22,7 @@ public record AlertResponse(
         @JsonProperty("acknowledged_by") UUID acknowledgedBy
 ) {
     public static AlertResponse from(Alert a) {
-        return new AlertResponse(a.getId(), a.getCameraId(), a.getTenantId(),
+        return new AlertResponse(a.getId(), a.getCameraId(), a.getOrgId(),
                 a.getType(), a.getMessage(), a.getSeverity(), a.getStatus(),
                 a.getTriggeredAt(), a.getAcknowledgedAt(), a.getAcknowledgedBy());
     }

@@ -20,7 +20,8 @@ export default function TwoFactorPage() {
       sessionStorage.setItem('access_token', data.access_token);
       if (data.refresh_token) sessionStorage.setItem('refresh_token', data.refresh_token);
       sessionStorage.removeItem('temp_token');
-      router.push('/cameras');
+      document.cookie = `access_token=${data.access_token}; path=/; SameSite=Lax`;
+      router.push('/workspace');
     } catch {
       setError('Código inválido. Tente novamente.');
     } finally {

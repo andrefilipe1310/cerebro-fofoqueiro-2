@@ -12,8 +12,8 @@ public class ThrottleService {
 
     private final StringRedisTemplate redisTemplate;
 
-    public boolean isThrottled(String tenantId, String emailType, String resourceId) {
-        String key = "throttle:" + emailType + ":" + tenantId + ":" + resourceId;
+    public boolean isThrottled(String orgId, String emailType, String resourceId) {
+        String key = "throttle:" + emailType + ":" + orgId + ":" + resourceId;
         Boolean wasAbsent = redisTemplate.opsForValue().setIfAbsent(key, "1", Duration.ofHours(1));
         return wasAbsent != null && !wasAbsent;
     }

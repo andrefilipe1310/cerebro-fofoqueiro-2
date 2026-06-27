@@ -3,14 +3,16 @@
 -- @responsibility Cria todas as tabelas de domínio — deve rodar antes do 99_dev_seed.sql
 -- @see docs/DATA_MODEL.md | docs/SDD.md
 
--- ─── TENANTS SCHEMA ─────────────────────────────────────────────────────────
+-- ─── ORGANIZATIONS SCHEMA ────────────────────────────────────────────────────
 
-CREATE TABLE IF NOT EXISTS tenants.tenants (
+CREATE TABLE IF NOT EXISTS organizations.organizations (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     slug            VARCHAR(100) NOT NULL UNIQUE,
     name            VARCHAR(255) NOT NULL,
     domain          VARCHAR(255),
     plan            VARCHAR(50)  NOT NULL DEFAULT 'STARTER',
+    logo_url        TEXT,
+    css_override    TEXT,
     max_cameras     INTEGER      NOT NULL DEFAULT 5,
     max_users       INTEGER      NOT NULL DEFAULT 5,
     retention_days  INTEGER      NOT NULL DEFAULT 30,
@@ -19,7 +21,7 @@ CREATE TABLE IF NOT EXISTS tenants.tenants (
     updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS tenants.outbox_events (
+CREATE TABLE IF NOT EXISTS organizations.outbox_events (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     topic       VARCHAR(100) NOT NULL,
     event_type  VARCHAR(100) NOT NULL,
@@ -30,30 +32,48 @@ CREATE TABLE IF NOT EXISTS tenants.outbox_events (
     last_error  TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_tenants_outbox_unsent
-    ON tenants.outbox_events (created_at) WHERE sent_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_organizations_outbox_unsent
+    ON organizations.outbox_events (created_at) WHERE sent_at IS NULL;
 
 -- ─── AUTH SCHEMA ────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS auth.users (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id       UUID         NOT NULL REFERENCES tenants.tenants(id),
-    email           VARCHAR(255) NOT NULL,
+    email           VARCHAR(255) NOT NULL UNIQUE,
     password_hash   VARCHAR(255),
-    role            VARCHAR(50)  NOT NULL DEFAULT 'OPERATOR',
     totp_secret     VARCHAR(255),
     totp_enabled    BOOLEAN      NOT NULL DEFAULT false,
+    backup_codes    TEXT[],
+    last_login      TIMESTAMPTZ,
+    failed_attempts INTEGER      NOT NULL DEFAULT 0,
+    locked_until    TIMESTAMPTZ,
     active          BOOLEAN      NOT NULL DEFAULT true,
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    UNIQUE (tenant_id, email)
+    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS auth.user_memberships (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID         NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    org_id      UUID         NOT NULL,
+    role        VARCHAR(50)  NOT NULL DEFAULT 'OPERATOR',
+    active      BOOLEAN      NOT NULL DEFAULT true,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, org_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_memberships_user_id ON auth.user_memberships (user_id);
+CREATE INDEX IF NOT EXISTS idx_memberships_org_id  ON auth.user_memberships (org_id);
 
 CREATE TABLE IF NOT EXISTS auth.refresh_tokens (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id     UUID         NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    org_id      UUID,
     token_hash  VARCHAR(255) NOT NULL UNIQUE,
     expires_at  TIMESTAMPTZ  NOT NULL,
+    revoked     BOOLEAN      NOT NULL DEFAULT false,
+    ip_address  VARCHAR(45),
+    user_agent  TEXT,
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
@@ -75,7 +95,7 @@ CREATE INDEX IF NOT EXISTS idx_auth_outbox_unsent
 
 CREATE TABLE IF NOT EXISTS cameras.locations (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id   UUID         NOT NULL REFERENCES tenants.tenants(id),
+    org_id      UUID         NOT NULL,
     name        VARCHAR(255) NOT NULL,
     address     TEXT,
     lat         DECIMAL(10, 7),
@@ -85,21 +105,35 @@ CREATE TABLE IF NOT EXISTS cameras.locations (
 );
 
 CREATE TABLE IF NOT EXISTS cameras.cameras (
-    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id           UUID        NOT NULL REFERENCES tenants.tenants(id),
-    location_id         UUID        REFERENCES cameras.locations(id),
-    name                VARCHAR(255) NOT NULL,
-    rtsp_url_encrypted  TEXT,
-    status              VARCHAR(50)  NOT NULL DEFAULT 'UNKNOWN',
-    lat                 DECIMAL(10, 7),
-    lng                 DECIMAL(10, 7),
-    ptz_enabled         BOOLEAN      NOT NULL DEFAULT false,
-    created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    updated_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id                  UUID         NOT NULL,
+    location_id             UUID         REFERENCES cameras.locations(id),
+    name                    VARCHAR(255) NOT NULL,
+    rtsp_url_encrypted      TEXT,
+    sub_stream_url_encrypted TEXT,
+    status                  VARCHAR(50)  NOT NULL DEFAULT 'UNKNOWN',
+    lat                     DECIMAL(10, 7),
+    lng                     DECIMAL(10, 7),
+    ptz_enabled             BOOLEAN      NOT NULL DEFAULT false,
+    stream_token            TEXT,
+    stream_token_expires_at TIMESTAMPTZ,
+    created_at              TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_cameras_tenant
-    ON cameras.cameras (tenant_id) WHERE status != 'DELETED';
+CREATE INDEX IF NOT EXISTS idx_cameras_org
+    ON cameras.cameras (org_id) WHERE status != 'DELETED';
+
+CREATE TABLE IF NOT EXISTS cameras.privacy_zones (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    camera_id   UUID         NOT NULL REFERENCES cameras.cameras(id) ON DELETE CASCADE,
+    org_id      UUID         NOT NULL,
+    name        VARCHAR(255) NOT NULL,
+    coordinates JSONB,
+    active      BOOLEAN      NOT NULL DEFAULT true,
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
 
 CREATE TABLE IF NOT EXISTS cameras.outbox_events (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -119,11 +153,22 @@ CREATE INDEX IF NOT EXISTS idx_cameras_outbox_unsent
 
 CREATE TABLE IF NOT EXISTS health.camera_health_state (
     camera_id                   UUID        PRIMARY KEY,
-    tenant_id                   UUID        NOT NULL,
+    org_id                      UUID        NOT NULL,
     status                      VARCHAR(50) NOT NULL DEFAULT 'UNKNOWN',
     last_seen_at                TIMESTAMPTZ,
     recording_confidence_score  DECIMAL(5, 2) NOT NULL DEFAULT 0.0,
     updated_at                  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS health.health_events (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    camera_id   UUID         NOT NULL,
+    org_id      UUID         NOT NULL,
+    type        VARCHAR(50)  NOT NULL,
+    severity    VARCHAR(50)  NOT NULL DEFAULT 'INFO',
+    detected_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    resolved_at TIMESTAMPTZ,
+    metadata    JSONB
 );
 
 CREATE TABLE IF NOT EXISTS health.outbox_events (
@@ -145,7 +190,7 @@ CREATE INDEX IF NOT EXISTS idx_health_outbox_unsent
 CREATE TABLE IF NOT EXISTS alerts.alerts (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     camera_id       UUID         NOT NULL,
-    tenant_id       UUID         NOT NULL,
+    org_id          UUID         NOT NULL,
     type            VARCHAR(100) NOT NULL,
     message         TEXT,
     severity        VARCHAR(50)  NOT NULL DEFAULT 'WARNING',
@@ -157,8 +202,8 @@ CREATE TABLE IF NOT EXISTS alerts.alerts (
     kafka_event_id  VARCHAR(255) UNIQUE
 );
 
-CREATE INDEX IF NOT EXISTS idx_alerts_tenant_status
-    ON alerts.alerts (tenant_id, status, triggered_at DESC);
+CREATE INDEX IF NOT EXISTS idx_alerts_org_status
+    ON alerts.alerts (org_id, status, triggered_at DESC);
 
 CREATE TABLE IF NOT EXISTS alerts.outbox_events (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -178,23 +223,22 @@ CREATE INDEX IF NOT EXISTS idx_alerts_outbox_unsent
 
 CREATE TABLE IF NOT EXISTS recordings.recordings (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id        UUID         NOT NULL,
+    org_id           UUID         NOT NULL,
     camera_id        UUID         NOT NULL,
     r2_key           TEXT         NOT NULL,
-    filename         VARCHAR(255),
     started_at       TIMESTAMPTZ  NOT NULL,
     ended_at         TIMESTAMPTZ,
     duration_seconds INTEGER,
-    file_size_bytes  BIGINT,
-    status           VARCHAR(50)  NOT NULL DEFAULT 'STORED',
+    size_bytes       BIGINT,
+    has_motion       BOOLEAN      NOT NULL DEFAULT false,
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_recordings_camera_time
     ON recordings.recordings (camera_id, started_at);
 
-CREATE INDEX IF NOT EXISTS idx_recordings_tenant_time
-    ON recordings.recordings (tenant_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_recordings_org_time
+    ON recordings.recordings (org_id, started_at DESC);
 
 CREATE TABLE IF NOT EXISTS recordings.outbox_events (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -215,7 +259,7 @@ CREATE INDEX IF NOT EXISTS idx_recordings_outbox_unsent
 CREATE TABLE IF NOT EXISTS audit.audit_logs (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_id      VARCHAR(255) NOT NULL UNIQUE,
-    tenant_id     UUID         NOT NULL,
+    org_id        UUID         NOT NULL,
     user_id       UUID,
     action        VARCHAR(100) NOT NULL,
     resource_type VARCHAR(100),
@@ -225,60 +269,54 @@ CREATE TABLE IF NOT EXISTS audit.audit_logs (
     raw_payload   JSONB
 );
 
-CREATE INDEX IF NOT EXISTS idx_audit_tenant_time
-    ON audit.audit_logs (tenant_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_org_time
+    ON audit.audit_logs (org_id, occurred_at DESC);
 
--- audit_service_user precisa de CREATE no schema para o Flyway criar flyway_schema_history.
--- O princípio INSERT+SELECT apenas (ADR-010) é enforçado pela aplicação, não pelo banco,
--- porque Flyway roda como o mesmo usuário do serviço.
+-- audit_service_user precisa de CREATE no schema para o Flyway criar flyway_schema_history
 GRANT CREATE ON SCHEMA audit TO audit_service_user;
-GRANT ALL ON ALL TABLES IN SCHEMA audit TO audit_service_user;
+GRANT ALL ON ALL TABLES    IN SCHEMA audit TO audit_service_user;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA audit TO audit_service_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA audit GRANT ALL ON TABLES TO audit_service_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA audit GRANT ALL ON TABLES    TO audit_service_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA audit GRANT ALL ON SEQUENCES TO audit_service_user;
 
--- ─── GRANTS EXPLÍCITOS (segurança de inicialização) ─────────────────────────
--- ALTER DEFAULT PRIVILEGES já cobre tabelas futuras criadas pelo superuser,
--- mas grants explícitos garantem acesso imediato às tabelas criadas acima.
+-- ─── GRANTS EXPLÍCITOS ────────────────────────────────────────────────────────
 
-GRANT ALL ON ALL TABLES IN SCHEMA tenants    TO tenant_service_user;
-GRANT ALL ON ALL TABLES IN SCHEMA auth       TO auth_service_user;
-GRANT ALL ON ALL TABLES IN SCHEMA cameras    TO camera_service_user;
-GRANT ALL ON ALL TABLES IN SCHEMA health     TO chms_service_user;
-GRANT ALL ON ALL TABLES IN SCHEMA alerts     TO alert_service_user;
-GRANT ALL ON ALL TABLES IN SCHEMA recordings TO recording_service_user;
+GRANT ALL ON ALL TABLES    IN SCHEMA organizations TO org_service_user;
+GRANT ALL ON ALL TABLES    IN SCHEMA auth          TO auth_service_user;
+GRANT ALL ON ALL TABLES    IN SCHEMA cameras       TO camera_service_user;
+GRANT ALL ON ALL TABLES    IN SCHEMA health        TO chms_service_user;
+GRANT ALL ON ALL TABLES    IN SCHEMA alerts        TO alert_service_user;
+GRANT ALL ON ALL TABLES    IN SCHEMA recordings    TO recording_service_user;
 
-GRANT ALL ON ALL SEQUENCES IN SCHEMA tenants    TO tenant_service_user;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA auth       TO auth_service_user;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA cameras    TO camera_service_user;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA health     TO chms_service_user;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA alerts     TO alert_service_user;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA recordings TO recording_service_user;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA organizations TO org_service_user;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA auth          TO auth_service_user;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA cameras       TO camera_service_user;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA health        TO chms_service_user;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA alerts        TO alert_service_user;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA recordings    TO recording_service_user;
+
+-- Permite auth-service ler organizations.organizations para o org picker
+GRANT SELECT (id, slug, name, logo_url, status) ON organizations.organizations TO auth_service_user;
 
 -- ─── TRANSFER DE OWNERSHIP PARA SERVICE USERS ────────────────────────────────
--- GRANT ALL cobre DML (SELECT/INSERT/UPDATE/DELETE), mas ALTER TABLE é DDL e
--- exige que o executante seja OWNER da tabela.
--- O Flyway roda como o service user e precisará de DDL nas migrações V2+.
--- Todas as tabelas criadas acima pelo superuser (postgres) devem ser
--- transferidas para o respectivo service user de cada schema.
 
 DO $$
 DECLARE
     r RECORD;
     schema_role JSONB := '{
-        "tenants":    "tenant_service_user",
-        "auth":       "auth_service_user",
-        "cameras":    "camera_service_user",
-        "health":     "chms_service_user",
-        "recordings": "recording_service_user",
-        "alerts":     "alert_service_user",
-        "audit":      "audit_service_user"
+        "organizations": "org_service_user",
+        "auth":          "auth_service_user",
+        "cameras":       "camera_service_user",
+        "health":        "chms_service_user",
+        "recordings":    "recording_service_user",
+        "alerts":        "alert_service_user",
+        "audit":         "audit_service_user"
     }';
 BEGIN
     FOR r IN
         SELECT schemaname, tablename
         FROM   pg_tables
-        WHERE  schemaname IN ('tenants','auth','cameras','health','recordings','alerts','audit')
+        WHERE  schemaname IN ('organizations','auth','cameras','health','recordings','alerts','audit')
     LOOP
         EXECUTE format(
             'ALTER TABLE %I.%I OWNER TO %I',
@@ -290,7 +328,7 @@ BEGIN
     FOR r IN
         SELECT sequence_schema AS s, sequence_name AS n
         FROM   information_schema.sequences
-        WHERE  sequence_schema IN ('tenants','auth','cameras','health','recordings','alerts','audit')
+        WHERE  sequence_schema IN ('organizations','auth','cameras','health','recordings','alerts','audit')
     LOOP
         EXECUTE format(
             'ALTER SEQUENCE %I.%I OWNER TO %I',

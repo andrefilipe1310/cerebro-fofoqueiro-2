@@ -23,8 +23,8 @@ public class MediaMtxSyncService {
         List<Camera> cameras = cameraRepository.findAllActive();
         log.info("Sincronizando {} câmeras no MediaMTX após startup", cameras.size());
         for (Camera camera : cameras) {
-            String path = String.format("tenant_%s/camera_%s/main",
-                    camera.getTenantId(), camera.getId());
+            String path = String.format("org_%s/camera_%s/main",
+                    camera.getOrgId(), camera.getId());
             cameraService.registerRtspSourceInMediaMtx(path, camera);
         }
     }

@@ -1,7 +1,7 @@
 package com.fofoqueiro.audit.controller;
 
 import com.fofoqueiro.audit.dto.response.AuditLogResponse;
-import com.fofoqueiro.audit.security.TenantContext;
+import com.fofoqueiro.audit.security.OrgContext;
 import com.fofoqueiro.audit.service.AuditLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -25,6 +25,6 @@ public class AuditLogController {
             @RequestParam(required = false) String action,
             @RequestParam(required = false) UUID userId,
             Pageable pageable) {
-        return ResponseEntity.ok(auditLogService.findByTenant(TenantContext.get(), action, userId, pageable));
+        return ResponseEntity.ok(auditLogService.findByOrg(OrgContext.get(), action, userId, pageable));
     }
 }

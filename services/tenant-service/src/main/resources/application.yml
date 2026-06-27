@@ -1,16 +1,16 @@
 # @path services/tenant-service/src/main/resources/application.yml
-# @owner tenant-service
-# @responsibility Configuração base do Tenant Service — porta 8082, schema tenants
-# @see docs/ARCHITECTURE.md#tenant-service | docs/ENV_CONFIG.md
+# @owner organization-service (tenant-service em processo de rename)
+# @responsibility Configuração base do Organization Service — porta 8082, schema organizations
+# @see docs/ARCHITECTURE.md#organization-service | docs/ENV_CONFIG.md
 
 spring:
   application:
-    name: tenant-service
+    name: organization-service
 
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:platform}
-    username: ${TENANT_DB_USER:tenant_service_user}
-    password: ${TENANT_DB_PASSWORD}
+    url: jdbc:postgresql://${POSTGRES_HOST:postgres}:${POSTGRES_PORT:5432}/${POSTGRES_DB:platform}
+    username: ${ORG_DB_USER:org_service_user}
+    password: ${ORG_DB_PASSWORD:changeme_org}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -21,14 +21,14 @@ spring:
       ddl-auto: validate
     properties:
       hibernate:
-        default_schema: tenants
+        default_schema: organizations
         dialect: org.hibernate.dialect.PostgreSQLDialect
     open-in-view: false
 
   flyway:
     enabled: true
     locations: classpath:db/migration
-    default-schema: tenants
+    default-schema: organizations
     baseline-on-migrate: true
 
   data:
@@ -52,6 +52,15 @@ management:
     web:
       exposure:
         include: health,info,metrics,prometheus
+
+springdoc:
+  swagger-ui:
+    path: /docs
+    operations-sorter: method
+    try-it-out-enabled: true
+  api-docs:
+    path: /v3/api-docs
+  show-actuator: false
 
 ---
 spring:
@@ -78,6 +87,6 @@ spring:
     activate:
       on-profile: test
   datasource:
-    url: jdbc:tc:postgresql:16:///test_tenants
+    url: jdbc:tc:postgresql:16:///test_organizations
   kafka:
     bootstrap-servers: ${spring.embedded.kafka.brokers:localhost:9092}

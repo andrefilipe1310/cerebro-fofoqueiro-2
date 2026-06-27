@@ -11,7 +11,7 @@ import java.util.UUID;
 @Repository
 public interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID> {
 
-    @Query(value = "SELECT * FROM tenants.outbox_events WHERE sent_at IS NULL ORDER BY created_at LIMIT 50",
+    @Query(value = "SELECT * FROM organizations.outbox_events WHERE sent_at IS NULL ORDER BY created_at LIMIT 50",
            nativeQuery = true)
     List<OutboxEvent> findUnsentEvents();
 }

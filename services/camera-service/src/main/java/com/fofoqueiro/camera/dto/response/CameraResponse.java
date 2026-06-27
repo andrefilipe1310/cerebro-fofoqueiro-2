@@ -9,7 +9,7 @@ import java.util.UUID;
 
 public record CameraResponse(
         UUID id,
-        @JsonProperty("tenant_id") UUID tenantId,
+        @JsonProperty("org_id") UUID orgId,
         @JsonProperty("location_id") UUID locationId,
         String name,
         String status,
@@ -20,7 +20,7 @@ public record CameraResponse(
 ) {
     public static CameraResponse from(Camera c) {
         return new CameraResponse(
-                c.getId(), c.getTenantId(), c.getLocationId(), c.getName(),
+                c.getId(), c.getOrgId(), c.getLocationId(), c.getName(),
                 c.getStatus().name(), c.isPtzEnabled(), c.getLat(), c.getLng(), c.getCreatedAt()
         );
     }

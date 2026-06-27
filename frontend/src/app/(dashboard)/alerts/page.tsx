@@ -24,7 +24,7 @@ interface AlertsPage { content: Alert[]; totalElements: number; }
 
 export default function AlertsPage() {
   const qc = useQueryClient();
-  const { tenant } = useAuthStore();
+  const { org } = useAuthStore();
   const [statusFilter, setStatusFilter] = useState<'TRIGGERED' | 'ACKNOWLEDGED' | ''>('TRIGGERED');
   const [toast, setToast] = useState<string | null>(null);
 
@@ -40,8 +40,12 @@ export default function AlertsPage() {
   });
 
   useEffect(() => {
-    if (!tenant?.id) return;
-    const wsUrl = (process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:8086') + '/ws';
+    if (!org?.id) return;
+    // SockJS exige http:// ou https:// — converte ws:// e wss:// automaticamente
+    const wsBase = (process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:8086')
+      .replace(/^ws:\/\//, 'http://')
+      .replace(/^wss:\/\//, 'https://');
+    const wsUrl = wsBase + '/ws';
     const token = sessionStorage.getItem('access_token') ?? '';
 
     const client = new Client({
@@ -51,7 +55,7 @@ export default function AlertsPage() {
       },
       reconnectDelay: 5000,
       onConnect: () => {
-        client.subscribe(`/topic/tenant/${tenant.id}/alerts`, (msg) => {
+        client.subscribe(`/topic/org/${org.id}/alerts`, (msg) => {
           const alert = JSON.parse(msg.body);
           setToast(`Novo alerta: ${alert.message}`);
           qc.invalidateQueries({ queryKey: ['alerts'] });
@@ -61,7 +65,7 @@ export default function AlertsPage() {
     });
     client.activate();
     return () => { client.deactivate(); };
-  }, [tenant?.id, qc]);
+  }, [org?.id, qc]);
 
   const alerts = data?.content ?? [];
 

@@ -11,9 +11,9 @@ import java.util.UUID;
 @Repository
 public interface TenantRepository extends JpaRepository<Tenant, UUID> {
 
-    @Query(value = "SELECT * FROM tenants.tenants WHERE slug = :slug LIMIT 1", nativeQuery = true)
+    @Query(value = "SELECT * FROM organizations.organizations WHERE slug = :slug LIMIT 1", nativeQuery = true)
     Optional<Tenant> findBySlug(String slug);
 
-    @Query(value = "SELECT * FROM tenants.tenants WHERE domain = :domain LIMIT 1", nativeQuery = true)
+    @Query(value = "SELECT * FROM organizations.organizations WHERE domain = :domain LIMIT 1", nativeQuery = true)
     Optional<Tenant> findByDomain(String domain);
 }

@@ -14,18 +14,18 @@ import java.util.UUID;
 @Repository
 public interface CameraRepository extends JpaRepository<Camera, UUID> {
 
-    @Query(value = "SELECT * FROM cameras.cameras WHERE tenant_id = :tenantId AND status != 'DELETED' ORDER BY created_at DESC",
-           countQuery = "SELECT count(*) FROM cameras.cameras WHERE tenant_id = :tenantId AND status != 'DELETED'",
+    @Query(value = "SELECT * FROM cameras.cameras WHERE org_id = :orgId AND status != 'DELETED' ORDER BY created_at DESC",
+           countQuery = "SELECT count(*) FROM cameras.cameras WHERE org_id = :orgId AND status != 'DELETED'",
            nativeQuery = true)
-    Page<Camera> findActiveByTenantId(UUID tenantId, Pageable pageable);
+    Page<Camera> findActiveByOrgId(UUID orgId, Pageable pageable);
 
-    @Query(value = "SELECT * FROM cameras.cameras WHERE tenant_id = :tenantId AND id = :id AND status != 'DELETED' LIMIT 1",
+    @Query(value = "SELECT * FROM cameras.cameras WHERE org_id = :orgId AND id = :id AND status != 'DELETED' LIMIT 1",
            nativeQuery = true)
-    Optional<Camera> findByTenantIdAndId(UUID tenantId, UUID id);
+    Optional<Camera> findByOrgIdAndId(UUID orgId, UUID id);
 
-    @Query(value = "SELECT count(*) FROM cameras.cameras WHERE tenant_id = :tenantId AND status != 'DELETED'",
+    @Query(value = "SELECT count(*) FROM cameras.cameras WHERE org_id = :orgId AND status != 'DELETED'",
            nativeQuery = true)
-    long countActiveByTenantId(UUID tenantId);
+    long countActiveByOrgId(UUID orgId);
 
     @Query(value = "SELECT * FROM cameras.cameras WHERE status != 'DELETED' AND rtsp_url_encrypted IS NOT NULL",
            nativeQuery = true)

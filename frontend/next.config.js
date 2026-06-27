@@ -5,7 +5,8 @@
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',   // otimizado para container Docker
+  // standalone apenas no Docker — cria symlinks que o Windows bloqueia sem Developer Mode
+  ...(process.env.NEXT_BUILD_STANDALONE === 'true' ? { output: 'standalone' } : {}),
   reactStrictMode: true,
   images: {
     remotePatterns: [

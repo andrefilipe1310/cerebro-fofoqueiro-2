@@ -26,24 +26,24 @@ public class AlertService {
     private final AlertBroadcastService broadcastService;
     private final EntityManager em;
 
-    private void setRls(UUID tenantId) {
-        if (tenantId != null) {
-            em.createNativeQuery("SELECT set_config('app.current_tenant_id', :tid, true)")
-              .setParameter("tid", tenantId.toString())
+    private void setRls(UUID orgId) {
+        if (orgId != null) {
+            em.createNativeQuery("SELECT set_config('app.current_org_id', :tid, true)")
+              .setParameter("tid", orgId.toString())
               .getSingleResult();
         }
     }
 
     @Transactional
-    public AlertResponse create(UUID cameraId, UUID tenantId, AlertType type,
+    public AlertResponse create(UUID cameraId, UUID orgId, AlertType type,
                                 String message, AlertSeverity severity, String kafkaEventId) {
         if (alertRepository.findByKafkaEventId(kafkaEventId).isPresent()) {
             return null;
         }
-        setRls(tenantId);
+        setRls(orgId);
         Alert alert = Alert.builder()
                 .cameraId(cameraId)
-                .tenantId(tenantId)
+                .orgId(orgId)
                 .type(type)
                 .message(message)
                 .severity(severity)
@@ -56,10 +56,10 @@ public class AlertService {
     }
 
     @Transactional
-    public AlertResponse acknowledge(UUID alertId, UUID userId, UUID tenantId) {
-        setRls(tenantId);
+    public AlertResponse acknowledge(UUID alertId, UUID userId, UUID orgId) {
+        setRls(orgId);
         Alert alert = alertRepository.findById(alertId)
-                .filter(a -> a.getTenantId().equals(tenantId))
+                .filter(a -> a.getOrgId().equals(orgId))
                 .orElseThrow(() -> new RuntimeException("Alert not found"));
         alert.setStatus(AlertStatus.ACKNOWLEDGED);
         alert.setAcknowledgedBy(userId);
@@ -68,12 +68,12 @@ public class AlertService {
     }
 
     @Transactional(readOnly = true)
-    public Page<AlertResponse> findByTenant(UUID tenantId, AlertStatus status, Pageable pageable) {
-        setRls(tenantId);
+    public Page<AlertResponse> findByOrg(UUID orgId, AlertStatus status, Pageable pageable) {
+        setRls(orgId);
         if (status != null) {
-            return alertRepository.findByTenantIdAndStatus(tenantId, status, pageable)
+            return alertRepository.findByOrgIdAndStatus(orgId, status, pageable)
                     .map(AlertResponse::from);
         }
-        return alertRepository.findByTenantId(tenantId, pageable).map(AlertResponse::from);
+        return alertRepository.findByOrgId(orgId, pageable).map(AlertResponse::from);
     }
 }

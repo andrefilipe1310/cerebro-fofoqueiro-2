@@ -5,12 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { tenantsApi } from '@/lib/api/tenants';
 import { authApi } from '@/lib/api/auth';
-import { useAuthStore } from '@/stores/auth.store';
 
 const schema = z.object({
-  tenantSlug: z.string().min(1, 'Informe o slug do tenant'),
   email: z.string().email('Email inválido'),
   password: z.string().min(1, 'Informe a senha'),
 });
@@ -19,7 +16,6 @@ type FormData = z.infer<typeof schema>;
 
 export default function LoginPage() {
   const router = useRouter();
-  const setUser = useAuthStore((s) => s.setUser);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -31,27 +27,28 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const { data: tenantConfig } = await tenantsApi.getConfigBySlug(data.tenantSlug);
-      const { data: authData } = await authApi.login(tenantConfig.id, data.email, data.password);
-
-      sessionStorage.setItem('access_token', authData.access_token);
-      if (authData.refresh_token) {
-        sessionStorage.setItem('refresh_token', authData.refresh_token);
-      }
-      sessionStorage.setItem('tenant_id', tenantConfig.id);
-      document.cookie = `access_token=${authData.access_token}; path=/; SameSite=Lax`;
+      const { data: authData } = await authApi.login(data.email, data.password);
 
       if (authData.requires_2fa) {
-        sessionStorage.setItem('temp_token', authData.access_token);
+        sessionStorage.setItem('temp_token', authData.temp_token ?? '');
         router.push('/2fa');
         return;
       }
 
-      if (authData.user) {
-        setUser(authData.user, { ...tenantConfig, plan: 'STARTER', limits: { cameras_max: 10, cameras_current: 0, users_max: 5, retention_days: 30 } });
+      if (authData.requires_org_selection && authData.orgs && authData.orgs.length > 0) {
+        // Múltiplas orgs — guarda dados no sessionStorage e vai para o picker
+        sessionStorage.setItem('pending_orgs', JSON.stringify(authData.orgs));
+        sessionStorage.setItem('pending_temp_token', authData.temp_token ?? '');
+        router.push('/workspace');
+        return;
       }
 
-      router.push('/cameras');
+      // Org única — auto-selecionada pelo backend, token já é scoped
+      sessionStorage.setItem('access_token', authData.access_token);
+      if (authData.refresh_token) sessionStorage.setItem('refresh_token', authData.refresh_token);
+      document.cookie = `access_token=${authData.access_token}; path=/; SameSite=Lax`;
+
+      router.push('/workspace');
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
       setError(e?.response?.data?.message ?? 'Credenciais inválidas');
@@ -68,16 +65,6 @@ export default function LoginPage() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">Organização</label>
-          <input
-            {...register('tenantSlug')}
-            placeholder="minha-empresa"
-            className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-          {errors.tenantSlug && <p className="text-destructive text-xs mt-1">{errors.tenantSlug.message}</p>}
-        </div>
-
         <div>
           <label className="block text-sm font-medium mb-1">Email</label>
           <input

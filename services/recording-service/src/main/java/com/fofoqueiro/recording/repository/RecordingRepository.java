@@ -14,16 +14,16 @@ import java.util.UUID;
 @Repository
 public interface RecordingRepository extends JpaRepository<Recording, UUID> {
 
-    @Query(value = "SELECT * FROM recordings.recordings WHERE tenant_id = :tenantId ORDER BY started_at DESC",
-           countQuery = "SELECT count(*) FROM recordings.recordings WHERE tenant_id = :tenantId",
+    @Query(value = "SELECT * FROM recordings.recordings WHERE org_id = :orgId ORDER BY started_at DESC",
+           countQuery = "SELECT count(*) FROM recordings.recordings WHERE org_id = :orgId",
            nativeQuery = true)
-    Page<Recording> findByTenantId(UUID tenantId, Pageable pageable);
+    Page<Recording> findByOrgId(UUID orgId, Pageable pageable);
 
-    @Query(value = "SELECT * FROM recordings.recordings WHERE camera_id = :cameraId AND tenant_id = :tenantId AND started_at >= :from AND (ended_at IS NULL OR ended_at <= :to) ORDER BY started_at",
+    @Query(value = "SELECT * FROM recordings.recordings WHERE camera_id = :cameraId AND org_id = :orgId AND started_at >= :from AND (ended_at IS NULL OR ended_at <= :to) ORDER BY started_at",
            nativeQuery = true)
-    List<Recording> findTimeline(UUID cameraId, UUID tenantId, OffsetDateTime from, OffsetDateTime to);
+    List<Recording> findTimeline(UUID cameraId, UUID orgId, OffsetDateTime from, OffsetDateTime to);
 
-    @Query(value = "SELECT * FROM recordings.recordings WHERE tenant_id = :tenantId AND ended_at IS NOT NULL AND ended_at < :cutoff",
+    @Query(value = "SELECT * FROM recordings.recordings WHERE org_id = :orgId AND ended_at IS NOT NULL AND ended_at < :cutoff",
            nativeQuery = true)
-    List<Recording> findExpiredRecordings(UUID tenantId, OffsetDateTime cutoff);
+    List<Recording> findExpiredRecordings(UUID orgId, OffsetDateTime cutoff);
 }

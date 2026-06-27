@@ -37,7 +37,7 @@ create_topic "camera.events"     6 1
 create_topic "health.events"     6 1
 create_topic "alert.events"      3 1
 create_topic "recording.events"  6 1
-create_topic "tenant.events"     3 1
+create_topic "organization.events" 3 1
 create_topic "audit.events"      6 1
 
 echo ""

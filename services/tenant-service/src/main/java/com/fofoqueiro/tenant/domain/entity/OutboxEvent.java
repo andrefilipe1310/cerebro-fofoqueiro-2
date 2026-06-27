@@ -9,7 +9,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(schema = "tenants", name = "outbox_events")
+@Table(schema = "organizations", name = "outbox_events")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class OutboxEvent {
 

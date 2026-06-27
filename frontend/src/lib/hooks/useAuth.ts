@@ -11,8 +11,8 @@ export function useLogin() {
   const setUser = useAuthStore((s) => s.setUser);
 
   return useMutation({
-    mutationFn: ({ email, password, tenantSlug }: { email: string; password: string; tenantSlug: string }) =>
-      authApi.login(tenantSlug, email, password),
+    mutationFn: ({ email, password, orgSlug }: { email: string; password: string; orgSlug: string }) =>
+      authApi.login(orgSlug, email, password),
     onSuccess: ({ data }) => {
       if (!data.requires_2fa) {
         sessionStorage.setItem('access_token', data.access_token);
