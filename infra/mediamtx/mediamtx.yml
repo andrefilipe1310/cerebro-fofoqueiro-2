@@ -34,7 +34,7 @@ hls: yes
 hlsAddress: :8888
 hlsSegmentDuration: 6s
 hlsSegmentCount: 6
-hlsAllowOrigin: "*"
+hlsAllowOrigins: ["*"]
 
 # RTSP ingestion das câmeras IP
 rtsp: yes

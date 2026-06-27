@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 import type { Camera } from '@/types';
@@ -14,36 +14,107 @@ interface StreamUrlResponse {
   expires_at: string;
 }
 
+type PlayerState = 'loading' | 'playing' | 'error';
+
 function HlsPlayer({ cameraId, cameraName }: { cameraId: string; cameraName: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [state, setState] = useState<PlayerState>('loading');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const startStream = useCallback(async () => {
+    setState('loading');
+    setErrorMsg('');
+
+    try {
+      const { data } = await apiClient.get<StreamUrlResponse>(`/cameras/${cameraId}/stream-url`);
+      const url = data.hls_url;
+      if (!url || !videoRef.current) { setState('error'); return; }
+
+      hlsRef.current?.destroy();
+
+      if (Hls.isSupported()) {
+        const hls = new Hls({
+          lowLatencyMode: false,
+          manifestLoadingMaxRetry: 4,
+          manifestLoadingRetryDelay: 2000,
+          levelLoadingMaxRetry: 4,
+          fragLoadingMaxRetry: 4,
+        });
+        hls.loadSource(url);
+        hls.attachMedia(videoRef.current);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          setState('playing');
+          videoRef.current?.play().catch(() => {});
+        });
+        hls.on(Hls.Events.ERROR, (_evt, data) => {
+          if (data.fatal) {
+            setErrorMsg(data.details || 'Falha no stream');
+            setState('error');
+            hls.destroy();
+          }
+        });
+        hlsRef.current = hls;
+      } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+        videoRef.current.src = url;
+        videoRef.current.oncanplay = () => setState('playing');
+        videoRef.current.onerror = () => { setState('error'); setErrorMsg('Erro ao carregar stream'); };
+        videoRef.current.play().catch(() => {});
+      } else {
+        setState('error');
+        setErrorMsg('HLS não suportado neste navegador');
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Erro ao obter URL do stream';
+      setState('error');
+      setErrorMsg(msg);
+    }
+  }, [cameraId]);
 
   useEffect(() => {
-    const fetchAndPlay = async () => {
-      try {
-        const { data } = await apiClient.get<StreamUrlResponse>(`/cameras/${cameraId}/stream-url`);
-        const url = data.hls_url;
-        if (!url || !videoRef.current) return;
-
-        if (Hls.isSupported()) {
-          const hls = new Hls({ lowLatencyMode: true });
-          hls.loadSource(url);
-          hls.attachMedia(videoRef.current);
-          hls.on(Hls.Events.MANIFEST_PARSED, () => { videoRef.current?.play().catch(() => {}); });
-          hlsRef.current = hls;
-        } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
-          videoRef.current.src = url;
-          videoRef.current.play().catch(() => {});
-        }
-      } catch {}
+    startStream();
+    return () => {
+      hlsRef.current?.destroy();
+      if (retryRef.current) clearTimeout(retryRef.current);
     };
-    fetchAndPlay();
-    return () => { hlsRef.current?.destroy(); };
-  }, [cameraId]);
+  }, [startStream]);
+
+  const handleRetry = () => {
+    hlsRef.current?.destroy();
+    startStream();
+  };
 
   return (
     <div className="relative bg-black rounded-md overflow-hidden aspect-video">
-      <video ref={videoRef} muted autoPlay playsInline className="w-full h-full object-contain" />
+      <video
+        ref={videoRef}
+        muted
+        autoPlay
+        playsInline
+        className={`w-full h-full object-contain ${state !== 'playing' ? 'opacity-0' : ''}`}
+      />
+
+      {state === 'loading' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-white/70 gap-2">
+          <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          <span className="text-xs">Conectando...</span>
+        </div>
+      )}
+
+      {state === 'error' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-white/70 gap-3 px-4">
+          <span className="text-2xl">⚠</span>
+          <span className="text-xs text-center">{errorMsg || 'Stream indisponível'}</span>
+          <button
+            onClick={handleRetry}
+            className="text-xs px-3 py-1 bg-white/20 hover:bg-white/30 rounded transition-colors"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      )}
+
       <div className="absolute bottom-2 left-2 text-white text-xs bg-black/60 px-2 py-1 rounded">
         {cameraName}
       </div>

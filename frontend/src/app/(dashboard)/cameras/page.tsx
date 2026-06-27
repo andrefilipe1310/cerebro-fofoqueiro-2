@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Wifi, WifiOff, MapPin } from 'lucide-react';
+import { Plus, Pencil, Trash2, Wifi, WifiOff, MapPin, Signal } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import type { Camera } from '@/types';
 
@@ -12,25 +12,18 @@ interface CreateCameraForm {
   name: string; rtspUrl: string; locationId: string; lat: string; lng: string; ptzEnabled: boolean;
 }
 
+interface TestResult { reachable: boolean; error?: string; }
+
 function parseGoogleMapsInput(input: string): { lat: string; lng: string } | null {
   const s = input.trim();
-
-  // URL com @lat,lng (https://maps.google.com/.../place/.../@-23.56,-46.65,15z)
   const atMatch = s.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
   if (atMatch) return { lat: atMatch[1], lng: atMatch[2] };
-
-  // URL com ?q=lat,lng ou &q=lat,lng
   const qMatch = s.match(/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
   if (qMatch) return { lat: qMatch[1], lng: qMatch[2] };
-
-  // URL com ll=lat,lng
   const llMatch = s.match(/[?&]ll=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
   if (llMatch) return { lat: llMatch[1], lng: llMatch[2] };
-
-  // Coordenadas puras copiadas do Google Maps: "-23.5632, -46.6544"
   const coordMatch = s.match(/^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$/);
   if (coordMatch) return { lat: coordMatch[1], lng: coordMatch[2] };
-
   return null;
 }
 
@@ -41,6 +34,11 @@ export default function CamerasPage() {
   const [form, setForm] = useState<CreateCameraForm>({ name: '', rtspUrl: '', locationId: '', lat: '', lng: '', ptzEnabled: false });
   const [mapInput, setMapInput] = useState('');
   const [mapInputError, setMapInputError] = useState(false);
+
+  const [testModal, setTestModal] = useState(false);
+  const [testUrl, setTestUrl] = useState('');
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [testingCamera, setTestingCamera] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery<Page<Camera>>({
     queryKey: ['cameras'],
@@ -63,6 +61,24 @@ export default function CamerasPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['cameras'] }),
   });
 
+  const testByUrl = useMutation({
+    mutationFn: (url: string) => apiClient.post<TestResult>('/cameras/test-connection', { rtsp_url: url }).then(r => r.data),
+    onSuccess: (data) => setTestResult(data),
+  });
+
+  const testById = async (cameraId: string) => {
+    setTestingCamera(cameraId);
+    try {
+      const { data } = await apiClient.post<TestResult>(`/cameras/${cameraId}/test`);
+      setTestingCamera(null);
+      setTestResult(data);
+      setTestUrl(`[câmera ${cameraId.slice(0, 8)}...]`);
+      setTestModal(true);
+    } catch {
+      setTestingCamera(null);
+    }
+  };
+
   const resetForm = () => {
     setForm({ name: '', rtspUrl: '', locationId: '', lat: '', lng: '', ptzEnabled: false });
     setMapInput('');
@@ -76,7 +92,6 @@ export default function CamerasPage() {
     const coords = parseGoogleMapsInput(value);
     if (coords) {
       setForm(f => ({ ...f, lat: coords.lat, lng: coords.lng }));
-      setMapInputError(false);
     } else {
       setMapInputError(true);
     }
@@ -84,11 +99,12 @@ export default function CamerasPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const payload = { name: form.name, rtsp_url: form.rtspUrl, lat: form.lat ? parseFloat(form.lat) : null, lng: form.lng ? parseFloat(form.lng) : null, ptz_enabled: form.ptzEnabled };
+    const base = { name: form.name, lat: form.lat ? parseFloat(form.lat) : null, lng: form.lng ? parseFloat(form.lng) : null, ptz_enabled: form.ptzEnabled };
     if (editingCamera) {
+      const payload = form.rtspUrl ? { ...base, rtsp_url: form.rtspUrl } : base;
       updateCamera.mutate({ id: editingCamera.id, payload });
     } else {
-      createCamera.mutate(payload);
+      createCamera.mutate({ ...base, rtsp_url: form.rtspUrl });
     }
   };
 
@@ -98,16 +114,28 @@ export default function CamerasPage() {
     setShowModal(true);
   };
 
+  const openTestModal = () => {
+    setTestUrl('');
+    setTestResult(null);
+    setTestModal(true);
+  };
+
   const cameras = data?.content ?? [];
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold">Câmeras</h1>
-        <button onClick={() => { resetForm(); setEditingCamera(null); setShowModal(true); }}
-          className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
-          <Plus className="h-4 w-4" /> Adicionar Câmera
-        </button>
+        <div className="flex gap-2">
+          <button onClick={openTestModal}
+            className="flex items-center gap-2 px-4 py-2 rounded-md border text-sm font-medium hover:bg-accent">
+            <Signal className="h-4 w-4" /> Testar URL
+          </button>
+          <button onClick={() => { resetForm(); setEditingCamera(null); setShowModal(true); }}
+            className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
+            <Plus className="h-4 w-4" /> Adicionar Câmera
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -147,6 +175,17 @@ export default function CamerasPage() {
                   <td className="px-4 py-3 text-muted-foreground">{cam.location?.name ?? '—'}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center gap-2 justify-end">
+                      <button
+                        onClick={() => testById(cam.id)}
+                        disabled={testingCamera === cam.id}
+                        title="Testar conexão"
+                        className="p-1.5 rounded hover:bg-accent disabled:opacity-50"
+                      >
+                        {testingCamera === cam.id
+                          ? <div className="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" />
+                          : <Signal className="h-3.5 w-3.5" />
+                        }
+                      </button>
                       <button onClick={() => openEdit(cam)} className="p-1.5 rounded hover:bg-accent"><Pencil className="h-3.5 w-3.5" /></button>
                       <button onClick={() => { if (confirm('Deletar câmera?')) deleteCamera.mutate(cam.id); }}
                         className="p-1.5 rounded hover:bg-accent text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
@@ -159,6 +198,58 @@ export default function CamerasPage() {
         </div>
       )}
 
+      {/* Test URL Modal */}
+      {testModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-card rounded-xl border shadow-lg w-full max-w-md p-6">
+            <h2 className="text-lg font-semibold mb-4">Testar Conexão RTSP</h2>
+
+            {!testResult ? (
+              <>
+                <div className="mb-3">
+                  <label className="block text-sm font-medium mb-1">URL RTSP</label>
+                  <input
+                    value={testUrl}
+                    onChange={e => setTestUrl(e.target.value)}
+                    placeholder="rtsp://user:pass@192.168.1.100:554/stream"
+                    className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    autoFocus
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setTestModal(false)}
+                    className="flex-1 py-2 rounded-md border text-sm hover:bg-accent">Cancelar</button>
+                  <button
+                    onClick={() => testByUrl.mutate(testUrl)}
+                    disabled={!testUrl.trim() || testByUrl.isPending}
+                    className="flex-1 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {testByUrl.isPending ? 'Testando...' : 'Testar'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-4">
+                <div className={`text-5xl mb-3`}>{testResult.reachable ? '✓' : '✗'}</div>
+                <p className={`text-lg font-semibold mb-1 ${testResult.reachable ? 'text-green-600' : 'text-red-600'}`}>
+                  {testResult.reachable ? 'Conexão OK' : 'Falha na conexão'}
+                </p>
+                {testResult.error && (
+                  <p className="text-sm text-muted-foreground mt-2 break-all">{testResult.error}</p>
+                )}
+                <div className="flex gap-2 mt-5">
+                  <button onClick={() => setTestResult(null)}
+                    className="flex-1 py-2 rounded-md border text-sm hover:bg-accent">Testar outra</button>
+                  <button onClick={() => { setTestModal(false); setTestResult(null); }}
+                    className="flex-1 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">Fechar</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Create/Edit Camera Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-card rounded-xl border shadow-lg w-full max-w-md p-6">
@@ -169,14 +260,15 @@ export default function CamerasPage() {
                 <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                   className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" required />
               </div>
-              {!editingCamera && (
-                <div>
-                  <label className="block text-sm font-medium mb-1">URL RTSP</label>
-                  <input value={form.rtspUrl} onChange={e => setForm(f => ({ ...f, rtspUrl: e.target.value }))}
-                    placeholder="rtsp://user:pass@192.168.1.100:554/stream"
-                    className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" required />
-                </div>
-              )}
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  URL RTSP {editingCamera && <span className="text-muted-foreground font-normal">(deixe vazio para manter atual)</span>}
+                </label>
+                <input value={form.rtspUrl} onChange={e => setForm(f => ({ ...f, rtspUrl: e.target.value }))}
+                  placeholder="rtsp://user:pass@192.168.1.100:554/stream"
+                  className="w-full px-3 py-2 rounded-md border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  required={!editingCamera} />
+              </div>
               <div>
                 <label className="flex items-center gap-1.5 text-sm font-medium mb-1">
                   <MapPin className="h-3.5 w-3.5" /> Localização via Google Maps

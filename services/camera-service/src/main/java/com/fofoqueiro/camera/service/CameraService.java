@@ -110,7 +110,7 @@ public class CameraService {
         if (req.lat() != null) camera.setLat(req.lat());
         if (req.lng() != null) camera.setLng(req.lng());
         boolean rtspChanged = false;
-        if (req.rtspUrl() != null) {
+        if (req.rtspUrl() != null && !req.rtspUrl().isBlank()) {
             camera.setRtspUrlEncrypted(encryptionService.encrypt(req.rtspUrl()));
             camera.setStreamToken(null);
             rtspChanged = true;
@@ -154,8 +154,6 @@ public class CameraService {
         String path = String.format("org_%s/camera_%s/main", orgId, cameraId);
         String token = camera.getStreamToken();
 
-        registerRtspSourceInMediaMtx(path, camera);
-
         return new StreamUrlResponse(
                 String.format("%s/%s/whep?token=%s", mediamtxPublicUrl, path, token),
                 String.format("%s/%s/index.m3u8?token=%s", mediamtxHlsUrl, path, token),
@@ -175,6 +173,18 @@ public class CameraService {
         } catch (Exception e) {
             return new TestConnectionResponse(false, e.getMessage());
         }
+    }
+
+    @Transactional(readOnly = true)
+    public TestConnectionResponse testConnectionById(UUID orgId, UUID cameraId) {
+        setRls(orgId);
+        Camera camera = cameraRepository.findByOrgIdAndId(orgId, cameraId)
+                .orElseThrow(() -> new EntityNotFoundException("Câmera não encontrada"));
+        if (camera.getRtspUrlEncrypted() == null) {
+            return new TestConnectionResponse(false, "URL RTSP não configurada");
+        }
+        String rtspUrl = encryptionService.decrypt(camera.getRtspUrlEncrypted());
+        return testConnection(rtspUrl);
     }
 
     public void registerRtspSourceInMediaMtx(String path, Camera camera) {

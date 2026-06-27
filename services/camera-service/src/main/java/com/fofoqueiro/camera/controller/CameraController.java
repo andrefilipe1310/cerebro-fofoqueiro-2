@@ -70,4 +70,10 @@ public class CameraController {
             @Valid @RequestBody TestConnectionRequest req) {
         return ResponseEntity.ok(cameraService.testConnection(req.rtspUrl()));
     }
+
+    @PostMapping("/{id}/test")
+    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
+    public ResponseEntity<TestConnectionResponse> testConnectionById(@PathVariable UUID id) {
+        return ResponseEntity.ok(cameraService.testConnectionById(OrgContext.get(), id));
+    }
 }
