@@ -19,7 +19,10 @@ import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -37,13 +40,14 @@ public class MediaMtxPollingService {
     @Scheduled(fixedDelayString = "${chms.polling-interval-ms:30000}")
     @Transactional
     public void pollMediaMtx() {
-        Set<String> activePaths = fetchActivePaths();
+        Map<String, JsonNode> activePaths = fetchActivePathDetails();
         List<CameraHealthState> allStates = healthStateRepository.findAll();
 
         for (CameraHealthState state : allStates) {
             String expectedPath = String.format("tenant_%s/camera_%s/main",
                     state.getTenantId(), state.getCameraId());
-            boolean isOnline = activePaths.contains(expectedPath);
+            JsonNode pathNode = activePaths.get(expectedPath);
+            boolean isOnline = pathNode != null && pathNode.path("ready").asBoolean(false);
 
             String previousStatus = state.getStatus();
             String newStatus = isOnline ? "ONLINE" : "OFFLINE";
@@ -77,24 +81,24 @@ public class MediaMtxPollingService {
         }
     }
 
-    private Set<String> fetchActivePaths() {
+    private Map<String, JsonNode> fetchActivePathDetails() {
         try {
             RestTemplate rt = new RestTemplate();
             ResponseEntity<String> response = rt.getForEntity(
                     mediamtxApiUrl + "/v3/paths/list", String.class);
             JsonNode root = objectMapper.readTree(response.getBody());
-            Set<String> paths = new HashSet<>();
+            Map<String, JsonNode> paths = new HashMap<>();
             JsonNode items = root.get("items");
             if (items != null && items.isArray()) {
                 for (JsonNode item : items) {
                     JsonNode name = item.get("name");
-                    if (name != null) paths.add(name.asText());
+                    if (name != null) paths.put(name.asText(), item);
                 }
             }
             return paths;
         } catch (Exception e) {
             log.warn("Falha ao consultar MediaMTX: {}", e.getMessage());
-            return Collections.emptySet();
+            return Collections.emptyMap();
         }
     }
 

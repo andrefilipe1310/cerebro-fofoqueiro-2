@@ -145,6 +145,8 @@ services:
       - "8889:8889"   # WebRTC (WHEP/WHIP)
       - "8888:8888"   # HLS
       - "9997:9997"   # Admin REST API
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - fofoqueiro-net
 

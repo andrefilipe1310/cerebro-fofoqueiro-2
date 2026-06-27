@@ -1,5 +1,6 @@
 package com.fofoqueiro.camera.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fofoqueiro.camera.domain.entity.Camera;
 import com.fofoqueiro.camera.domain.entity.OutboxEvent;
@@ -8,6 +9,7 @@ import com.fofoqueiro.camera.dto.request.CreateCameraRequest;
 import com.fofoqueiro.camera.dto.request.UpdateCameraRequest;
 import com.fofoqueiro.camera.dto.response.CameraResponse;
 import com.fofoqueiro.camera.dto.response.StreamUrlResponse;
+import com.fofoqueiro.camera.dto.response.TestConnectionResponse;
 import com.fofoqueiro.camera.repository.CameraRepository;
 import com.fofoqueiro.camera.repository.OutboxEventRepository;
 import jakarta.persistence.EntityManager;
@@ -20,11 +22,16 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.net.URI;
 import java.time.OffsetDateTime;
 import java.util.Map;
 import java.util.UUID;
@@ -85,6 +92,10 @@ public class CameraService {
 
         cameraRepository.save(camera);
         publishCameraEvent(camera, "CAMERA_CREATED");
+
+        String path = String.format("tenant_%s/camera_%s/main", tenantId, camera.getId());
+        registerRtspSourceInMediaMtx(path, camera);
+
         return CameraResponse.from(camera);
     }
 
@@ -98,13 +109,21 @@ public class CameraService {
         if (req.locationId() != null) camera.setLocationId(req.locationId());
         if (req.lat() != null) camera.setLat(req.lat());
         if (req.lng() != null) camera.setLng(req.lng());
+        boolean rtspChanged = false;
         if (req.rtspUrl() != null) {
             camera.setRtspUrlEncrypted(encryptionService.encrypt(req.rtspUrl()));
             camera.setStreamToken(null);
+            rtspChanged = true;
         }
         if (req.ptzEnabled() != null) camera.setPtzEnabled(req.ptzEnabled());
 
         cameraRepository.save(camera);
+
+        if (rtspChanged) {
+            String path = String.format("tenant_%s/camera_%s/main", tenantId, cameraId);
+            registerRtspSourceInMediaMtx(path, camera);
+        }
+
         return CameraResponse.from(camera);
     }
 
@@ -145,16 +164,38 @@ public class CameraService {
         );
     }
 
-    private void registerRtspSourceInMediaMtx(String path, Camera camera) {
+    public TestConnectionResponse testConnection(String rtspUrl) {
+        try {
+            URI uri = URI.create(rtspUrl);
+            int port = uri.getPort() == -1 ? 554 : uri.getPort();
+            try (Socket socket = new Socket()) {
+                socket.connect(new InetSocketAddress(uri.getHost(), port), 4000);
+            }
+            return new TestConnectionResponse(true, null);
+        } catch (Exception e) {
+            return new TestConnectionResponse(false, e.getMessage());
+        }
+    }
+
+    public void registerRtspSourceInMediaMtx(String path, Camera camera) {
         if (camera.getRtspUrlEncrypted() == null) return;
         try {
             String rtspUrl = encryptionService.decrypt(camera.getRtspUrlEncrypted());
-            String url = String.format("%s/v3/config/paths/add/%s", mediamtxApiUrl, path);
+            String encodedPath = path.replace("/", "%2F");
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            Map<String, Object> body = Map.of("source", rtspUrl, "sourceOnDemand", true);
-            restTemplate.put(url, new HttpEntity<>(body, headers));
-            log.debug("MediaMTX path registered: {}", path);
+            Map<String, Object> body = Map.of("source", rtspUrl, "sourceOnDemand", false);
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+
+            // Remove path if it already exists (idempotent registration)
+            try {
+                URI deleteUri = URI.create(String.format("%s/v3/config/paths/delete/%s", mediamtxApiUrl, encodedPath));
+                restTemplate.exchange(deleteUri, HttpMethod.DELETE, null, String.class);
+            } catch (Exception ignored) {}
+
+            URI addUri = URI.create(String.format("%s/v3/config/paths/add/%s", mediamtxApiUrl, encodedPath));
+            restTemplate.exchange(addUri, HttpMethod.POST, entity, String.class);
+            log.info("MediaMTX path registered: {}", path);
         } catch (Exception e) {
             log.warn("Falha ao registrar path no MediaMTX ({}): {}", path, e.getMessage());
         }

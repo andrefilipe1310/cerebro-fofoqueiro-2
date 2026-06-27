@@ -1,9 +1,11 @@
 package com.fofoqueiro.camera.controller;
 
 import com.fofoqueiro.camera.dto.request.CreateCameraRequest;
+import com.fofoqueiro.camera.dto.request.TestConnectionRequest;
 import com.fofoqueiro.camera.dto.request.UpdateCameraRequest;
 import com.fofoqueiro.camera.dto.response.CameraResponse;
 import com.fofoqueiro.camera.dto.response.StreamUrlResponse;
+import com.fofoqueiro.camera.dto.response.TestConnectionResponse;
 import com.fofoqueiro.camera.security.TenantContext;
 import com.fofoqueiro.camera.service.CameraService;
 import jakarta.validation.Valid;
@@ -60,5 +62,12 @@ public class CameraController {
     @GetMapping("/{id}/stream-url")
     public ResponseEntity<StreamUrlResponse> getStreamUrl(@PathVariable UUID id) {
         return ResponseEntity.ok(cameraService.getStreamUrl(TenantContext.get(), id));
+    }
+
+    @PostMapping("/test-connection")
+    @PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
+    public ResponseEntity<TestConnectionResponse> testConnection(
+            @Valid @RequestBody TestConnectionRequest req) {
+        return ResponseEntity.ok(cameraService.testConnection(req.rtspUrl()));
     }
 }

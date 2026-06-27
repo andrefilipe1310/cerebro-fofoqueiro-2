@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,4 +26,8 @@ public interface CameraRepository extends JpaRepository<Camera, UUID> {
     @Query(value = "SELECT count(*) FROM cameras.cameras WHERE tenant_id = :tenantId AND status != 'DELETED'",
            nativeQuery = true)
     long countActiveByTenantId(UUID tenantId);
+
+    @Query(value = "SELECT * FROM cameras.cameras WHERE status != 'DELETED' AND rtsp_url_encrypted IS NOT NULL",
+           nativeQuery = true)
+    List<Camera> findAllActive();
 }
