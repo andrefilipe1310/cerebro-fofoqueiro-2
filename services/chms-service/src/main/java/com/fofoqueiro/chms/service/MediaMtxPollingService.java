@@ -23,6 +23,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
@@ -37,10 +40,14 @@ public class MediaMtxPollingService {
     @Value("${mediamtx.api-url:http://mediamtx:9997}")
     private String mediamtxApiUrl;
 
+    private static final Pattern PATH_PATTERN =
+            Pattern.compile("^org_([\\w-]+)/camera_([\\w-]+)/main$");
+
     @Scheduled(fixedDelayString = "${chms.polling-interval-ms:30000}")
     @Transactional
     public void pollMediaMtx() {
         Map<String, JsonNode> activePaths = fetchActivePathDetails();
+        autoRegisterNewCameras(activePaths);
         List<CameraHealthState> allStates = healthStateRepository.findAll();
 
         for (CameraHealthState state : allStates) {
@@ -77,6 +84,26 @@ public class MediaMtxPollingService {
             } else if (isOnline) {
                 state.setLastSeenAt(OffsetDateTime.now());
                 healthStateRepository.save(state);
+            }
+        }
+    }
+
+    private void autoRegisterNewCameras(Map<String, JsonNode> activePaths) {
+        for (String pathName : activePaths.keySet()) {
+            Matcher m = PATH_PATTERN.matcher(pathName);
+            if (!m.matches()) continue;
+            UUID cameraId = UUID.fromString(m.group(2));
+            UUID orgId    = UUID.fromString(m.group(1));
+            if (!healthStateRepository.existsById(cameraId)) {
+                CameraHealthState state = CameraHealthState.builder()
+                        .cameraId(cameraId)
+                        .orgId(orgId)
+                        .status("UNKNOWN")
+                        .consecutiveFailures(0)
+                        .recordingConfidenceScore(BigDecimal.ZERO)
+                        .build();
+                healthStateRepository.save(state);
+                log.info("Auto-registrado health state para câmera {}", cameraId);
             }
         }
     }
