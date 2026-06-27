@@ -18,6 +18,16 @@ BEGIN
     END IF;
 END $$;
 
+-- Renomear índice tenant_id → org_id
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = 'health' AND indexname = 'idx_health_events_tenant') THEN
+        ALTER INDEX health.idx_health_events_tenant RENAME TO idx_health_events_org;
+    END IF;
+END $$;
+
+-- Criar índice org_id caso não exista ainda
+CREATE INDEX IF NOT EXISTS idx_health_events_org ON health.health_events (org_id, type, detected_at DESC);
+
 DROP POLICY IF EXISTS tenant_isolation_health_state  ON health.camera_health_state;
 DROP POLICY IF EXISTS tenant_isolation_health_events ON health.health_events;
 DROP POLICY IF EXISTS org_isolation_health_state     ON health.camera_health_state;

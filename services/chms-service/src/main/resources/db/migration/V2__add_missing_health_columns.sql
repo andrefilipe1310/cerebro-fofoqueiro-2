@@ -16,5 +16,3 @@ CREATE TABLE IF NOT EXISTS health.health_events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_health_events_camera ON health.health_events (camera_id, detected_at DESC);
--- index usa org_id (coluna renomeada de tenant_id)
-CREATE INDEX IF NOT EXISTS idx_health_events_org ON health.health_events (org_id, type, detected_at DESC);
